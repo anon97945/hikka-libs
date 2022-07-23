@@ -1,4 +1,4 @@
-__version__ = (1, 0, 1)
+__version__ = (2, 0, 2)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -36,6 +36,7 @@ import re
 import sys
 from datetime import datetime, timedelta
 from typing import Any, Optional, Union
+from urllib.parse import urlparse
 
 import aiohttp
 import grapheme
@@ -147,13 +148,11 @@ class ApodiktumLib(loader.Library):
         self.beta_access = await self.__internal._beta_access()
         if self.beta_access:
             self.utils_beta = ApodiktumUtilsBeta(self)
-        asyncio.ensure_future(self.__internal._send_stats())
-
         await self._refresh()
         self.utils.log(
             logging.DEBUG, self.__class__.__name__, "Refresh done.", debug_msg=True
         )
-
+        self._ss_task = asyncio.ensure_future(self.__internal._send_stats())
         self._acl_task = asyncio.ensure_future(
             self.__controllerloader.ensure_controller()
         )
@@ -196,6 +195,7 @@ class ApodiktumLib(loader.Library):
 
     async def on_lib_update(self, _: loader.Library):
         self._acl_task.cancel()
+        self._ss_task.cancel()
         self.utils.log(
             logging.DEBUG,
             self.__class__.__name__,
@@ -617,7 +617,8 @@ class ApodiktumUtils(loader.Module):
                                     self.log(
                                         logging.DEBUG,
                                         self._libclassname,
-                                        f"Can't extract entity from event {type(message)}",
+                                        "Can't extract entity from event"
+                                        f" {type(message)}",
                                     )
                                     return
         if str(user_id).startswith("-100") and strip:
@@ -1232,18 +1233,20 @@ class ApodiktumInternal(loader.Module):
         Send anonymous stats to Hikka
         :return: None
         """
-        await asyncio.sleep(8)
-        urls = [
-            "https://raw.githubusercontent.com/anon97945/hikka-libs/master/apodiktum_library.py",
-            "https://raw.githubusercontent.com/anon97945/hikka-mods/master/total_users.py",
-        ]
-        if not getattr(self, "apodiktum_module", False):
-            urls.append(
-                "https://raw.githubusercontent.com/anon97945/hikka-mods/master/ApoLib_others.py"
-            )
-        self.apodiktum_module = False
-        for url in urls:
-            asyncio.ensure_future(self.__send_stats_handler(url))
+        if self._db.get(main.__name__, "stats", True):
+                await asyncio.sleep(8)
+                urls = [
+                    "https://raw.githubusercontent.com/anon97945/hikka-libs/master/apodiktum_library.py",
+                    "https://raw.githubusercontent.com/anon97945/hikka-mods/master/total_users.py",
+                ]
+                if not getattr(self, "apodiktum_module", False):
+                    urls.append(
+                        "https://raw.githubusercontent.com/anon97945/hikka-mods/master/ApoLib_others.py"
+                    )
+                while True:
+                    for url in urls:
+                        asyncio.ensure_future(self.__send_stats_handler(url))
+                    await asyncio.sleep(6 * 60 * 60)  # 6 hours
 
     def _is_apodiktum_module(self):
         """
@@ -1261,11 +1264,7 @@ class ApodiktumInternal(loader.Module):
         :return: None
         """
         with contextlib.suppress(Exception):
-            if (
-                getattr(self._db["hikka.main"], "stats", True)
-                and url is not None
-                and utils.check_url(url)
-            ):
+            if url is not None and utils.check_url(url):
                 try:
                     if self._db["LoaderMod"] and not self._db["LoaderMod"]["token"]:
                         self._db["LoaderMod"].setdefault(
@@ -1290,6 +1289,14 @@ class ApodiktumInternal(loader.Module):
                         if self._db["LoaderMod"] and not self._db["LoaderMod"]["token"]:
                             self._db["LoaderMod"]["token"] = None
                         return await self._send_stats_handler(url, retry=True)
+                    filename = (os.path.basename(urlparse(url).path)).split(".")[0]
+                    if filename:
+                        self.utils.log(
+                            logging.DEBUG,
+                            self._libclassname,
+                            f"Succesfully sent stats for {filename}",
+                            debug_msg=True,
+                        )
                 except Exception as exc:  # skipcq: PYL-W0703
                     self.utils.log(
                         logging.DEBUG,

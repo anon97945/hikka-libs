@@ -1,5 +1,10 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.0.2
+### 📦 apodiktum_library:
+#### General:
+- Ensure pushing anonymous stats
+
 ## 🆕 Version 2.0.1
 ### 📦 apodiktum_library:
 #### Utils:
