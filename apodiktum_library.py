@@ -1,4 +1,4 @@
-__version__ = (2, 0, 2)
+__version__ = (2, 0, 20)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -31,6 +31,7 @@ import hashlib
 import html
 import importlib
 import logging
+import math
 import os
 import re
 import sys
@@ -41,9 +42,29 @@ from urllib.parse import urlparse
 import aiohttp
 import grapheme
 import requests
+from aiogram.types import ChatPermissions
+from aiogram.utils.exceptions import (
+    BotKicked,
+    ChatNotFound,
+    MessageCantBeDeleted,
+    MessageToDeleteNotFound,
+)
 from telethon.errors import UserNotParticipantError
-from telethon.tl.functions.channels import GetFullChannelRequest
-from telethon.tl.types import Channel, Chat, Message, MessageEntityUrl, User
+from telethon.tl.functions.channels import (
+    EditAdminRequest,
+    EditBannedRequest,
+    GetFullChannelRequest,
+    InviteToChannelRequest,
+)
+from telethon.tl.types import (
+    Channel,
+    Chat,
+    ChatAdminRights,
+    ChatBannedRights,
+    Message,
+    MessageEntityUrl,
+    User,
+)
 
 from .. import loader, main, utils
 
@@ -888,16 +909,17 @@ class ApodiktumUtils(loader.Module):
         return list(dict.fromkeys(s))
 
     @staticmethod
-    def convert_time(t) -> int:
+    def convert_time(t: Any) -> int:
         """
         Tries to export time from text
-        :param t: Xs/Xm/Xh/Xd/Xw
+        :param t: Xs/Xm/Xh/Xd/Xw/Xy
         :return: converted time to seconds as integer
         """
         try:
             if not str(t)[:-1].isdigit():
                 return 0
-
+            if "y" in str(t):
+                return int(str(t)[:-1]) * 60 * 60 * 24 * 365
             if "w" in str(t):
                 t = int(t[:-1]) * 60 * 60 * 24 * 7
 
@@ -917,6 +939,79 @@ class ApodiktumUtils(loader.Module):
         except ValueError:
             return 0
         return t
+
+    @staticmethod
+    def tdstring_to_seconds(
+        tdstr: Any,
+        rev_order: bool = False,
+    ) -> int:
+        """
+        Convert timedelta string to seconds
+        :param tdstr: timedelta string
+        :param reversed: if True s:m:h -> h:m:s
+        :return: seconds as int or None if timedelta string is invalid
+        """
+        try:
+            if not isinstance(tdstr, Any):
+                tdstr = str(tdstr)
+            if isinstance(tdstr, timedelta):
+                return int(tdstr.total_seconds())
+            if not isinstance(tdstr, str):
+                tdstr = str(tdstr)
+            parts = tdstr.strip(" ").split(" ")
+            d = int(parts[0]) if len(parts) > 1 else 0
+            if rev_order:
+                s = sum(
+                    x * y for x, y in zip(map(int, parts[-1].split(":")), (1, 60, 3600))
+                )
+            else:
+                s = sum(
+                    x * y for x, y in zip(map(int, parts[-1].split(":")), (3600, 60, 1))
+                )
+            return 86400 * d + s
+        except TypeError:
+            return None
+
+    @staticmethod
+    def time_formatter(seconds: int, short: bool = False) -> str:
+        """
+        Inputs time in seconds, to get beautified time,
+        as string
+        :param seconds: time in seconds
+        :param short: if True, will return short time format
+        :return: beautified time
+        """
+        result = ""
+        v_m = 0
+        remainder = seconds
+        if short:
+            times = {
+                "y": (60 * 60 * 24 * 365),
+                "w": (60 * 60 * 24 * 7),
+                "d": (60 * 60 * 24),
+                "h": (60 * 60),
+                "m": 60,
+                "s": 1,
+            }
+        else:
+            times = {
+                "millenia": (60 * 60 * 24 * 365 * 1000),
+                "centuries": (60 * 60 * 24 * 365 * 100),
+                "decades": (60 * 60 * 24 * 365 * 10),
+                "years": (60 * 60 * 24 * 365),
+                "month": (60 * 60 * 24 * 30),
+                "weeks": (60 * 60 * 24 * 7),
+                "days": (60 * 60 * 24),
+                "hours": (60 * 60),
+                "minutes": 60,
+                "seconds": 1,
+            }
+        for string, divisor in times.items():
+            v_m, remainder = divmod(remainder, divisor)
+            v_m = int(v_m)
+            if v_m != 0:
+                result += f"{v_m}{string}, " if short else f"{v_m} {string}, "
+        return result[:-2]
 
     @staticmethod
     def get_ids_from_tglink(link) -> str:
@@ -1001,79 +1096,6 @@ class ApodiktumUtils(loader.Module):
             num /= 1024.0
         return f"{num:.{decimal}f} Yi{suffix}"
 
-    @staticmethod
-    def tdstring_to_seconds(
-        tdstr: Any,
-        rev_order: bool = False,
-    ) -> int:
-        """
-        Convert timedelta string to seconds
-        :param tdstr: timedelta string
-        :param reversed: if True s:m:h -> h:m:s
-        :return: seconds as int or None if timedelta string is invalid
-        """
-        try:
-            if not isinstance(tdstr, Any):
-                tdstr = str(tdstr)
-            if isinstance(tdstr, timedelta):
-                return int(tdstr.total_seconds())
-            if not isinstance(tdstr, str):
-                tdstr = str(tdstr)
-            parts = tdstr.strip(" ").split(" ")
-            d = int(parts[0]) if len(parts) > 1 else 0
-            if rev_order:
-                s = sum(
-                    x * y for x, y in zip(map(int, parts[-1].split(":")), (1, 60, 3600))
-                )
-            else:
-                s = sum(
-                    x * y for x, y in zip(map(int, parts[-1].split(":")), (3600, 60, 1))
-                )
-            return 86400 * d + s
-        except TypeError:
-            return None
-
-    @staticmethod
-    def time_formatter(seconds: int, short: bool = False) -> str:
-        """
-        Inputs time in seconds, to get beautified time,
-        as string
-        :param seconds: time in seconds
-        :param short: if True, will return short time format
-        :return: beautified time
-        """
-        result = ""
-        v_m = 0
-        remainder = seconds
-        if short:
-            times = {
-                "y": (60 * 60 * 24 * 365),
-                "w": (60 * 60 * 24 * 7),
-                "d": (60 * 60 * 24),
-                "h": (60 * 60),
-                "m": 60,
-                "s": 1,
-            }
-        else:
-            times = {
-                "millenia": (60 * 60 * 24 * 365 * 1000),
-                "centuries": (60 * 60 * 24 * 365 * 100),
-                "decades": (60 * 60 * 24 * 365 * 10),
-                "years": (60 * 60 * 24 * 365),
-                "month": (60 * 60 * 24 * 30),
-                "weeks": (60 * 60 * 24 * 7),
-                "days": (60 * 60 * 24),
-                "hours": (60 * 60),
-                "minutes": 60,
-                "seconds": 1,
-            }
-        for string, divisor in times.items():
-            v_m, remainder = divmod(remainder, divisor)
-            v_m = int(v_m)
-            if v_m != 0:
-                result += f"{v_m}{string}, " if short else f"{v_m} {string}, "
-        return result[:-2]
-
     def get_uptime(self, short: bool = True) -> str:
         """
         Get uptime of bot
@@ -1102,6 +1124,7 @@ class ApodiktumUtilsBeta(loader.Module):
         self.lib = lib
         self._db = lib.db
         self._client = lib.client
+        self.inline = self.lib.allmodules.inline
         self._libclassname = self.lib.__class__.__name__
         self._lib_db = self._db.setdefault(self._libclassname, {})
         self._chats_db = self._lib_db.setdefault("chats", {})
@@ -1125,35 +1148,229 @@ class ApodiktumUtilsBeta(loader.Module):
         self.utils = lib.utils
         self.imports = lib.importer
 
-    def log_old(
+    async def check_inlinebot(
         self,
-        level: int,
-        name: str,
-        message: str,
-        *args,
-        **kwargs,
+        chat_id: int,
     ):
         """
-        Logs a message to the console
-        :param level: The logging level
-        :param name: The name of the module
-        :param message: The message to log
-        :param args: Any additional arguments
-        :param kwargs: Any additional keyword arguments
-        :param debug_msg: Whether to log the message as a defined debug message
-        :return: None
+        Check if the inline bot is in the chat and has the correct permissions
+        Else try to add it and set the permissions
+        :param chat_id: Chat ID
+        :return: True if the inline bot is in the chat and has the correct permissions, False otherwise
         """
-        if "debug_msg" in kwargs:
-            debug_msg = True
-            kwargs.pop("debug_msg")
-        else:
-            debug_msg = False
-        apo_logger = logging.getLogger(name)
-        if (
-            not debug_msg and self.lib.config["log_channel"] and level == logging.DEBUG
-        ) or (debug_msg and self.lib.config["log_debug"] and level == logging.DEBUG):
-            return apo_logger.log(logging.INFO, message, *args, **kwargs)
-        return apo_logger.log(level, message, *args, **kwargs)
+        chat = await self._client.get_entity(chat_id)
+        if chat_id != self._client.tg_id:
+            try:
+                bot_perms = await self._client.get_permissions(
+                    chat_id, self.inline.bot_id
+                )
+                if (
+                    bot_perms.is_admin
+                    and bot_perms.ban_users
+                    and bot_perms.delete_messages
+                ):
+                    return True
+                return bool(await self.promote_bot(self.inline, chat_id))
+            except UserNotParticipantError:
+                return bool(
+                    chat.admin_rights.add_admins
+                    and await self.promote_bot(self.inline, chat_id)
+                )
+
+    async def promote_bot(
+        self,
+        chat_id: int,
+    ):
+        """
+        Adds and sets the permissions for the inline bot
+        :param chat_id: The chat to promote the bot to admin in
+        :return: True if the bot was promoted, False if not
+        """
+        try:
+            await self._client(
+                InviteToChannelRequest(chat_id, [self.inline.bot_username])
+            )
+        except Exception:
+            self.utils.log(
+                logging.DEBUG,
+                self._libclassname,
+                f"Unable to invite inlinebot to {chat_id}. Maybe he's already there?",
+                debug_msg=True,
+            )
+        try:
+            await self._client(
+                EditAdminRequest(
+                    channel=chat_id,
+                    user_id=self.inline.bot_username,
+                    admin_rights=ChatAdminRights(ban_users=True, delete_messages=True),
+                    rank="Bot",
+                )
+            )
+            return True
+        except Exception as exc:  # skipcq: PYL-W0703
+            self.utils.log(
+                logging.DEBUG,
+                self._libclassname,
+                f"Inlinebot promotion in chat {chat_id} failed!",
+                debug_msg=True,
+            )
+            return False
+
+    async def mute(
+        self,
+        chat_id: int,
+        user_id: int,
+        duration: Union[int, float] = None,
+    ):
+        """
+        Mutes a user in a chat
+        :param chat_id: The chat id to mute the user in
+        :param user_id: The user to mute
+        :param duration: The time in seconds for the duration
+        :return: True if the user was muted, False if not<
+        """
+        chat = await self._client.get_entity(chat_id)
+        duration = int(math.ceil(duration)) if duration else None
+        try:
+            if await self.check_inlinebot(self.inline, chat):
+                with contextlib.suppress(Exception):
+                    await self.inline.bot.restrict_chat_member(
+                        chat_id
+                        if str(chat_id).startswith("-100")
+                        else int(f"-100{chat_id}"),
+                        user_id,
+                        permissions=ChatPermissions(can_send_messages=False),
+                        until_date=timedelta(minutes=duration),
+                    )
+                    return True
+            await self._client.edit_permissions(
+                chat_id, user_id, timedelta(minutes=duration), send_messages=False
+            )
+            return True
+        except Exception as exc:  # skipcq: PYL-W0703
+            self.utils.log(
+                logging.ERROR,
+                self._libclassname,
+                f"Unable to mute user {user_id} in chat {chat_id} for duration"
+                f" {duration}min",
+                debug_msg=True,
+            )
+            return False
+
+    async def ban(
+        self,
+        chat_id: int,
+        user_id: Union[User, Channel],
+        duration: Union[int, float] = None,
+    ):
+        """
+        Bans a user in a chat, optionally for a certain time
+        :param chat_id: The chat id to delete the message in
+        :param user_id: The user to ban
+        :param duration: The time in minutes for the duration
+        :return: True if the user was banned, False if not
+        """
+
+        chat = await self._client.get_entity(chat_id)
+        user = await self._client.get_entity(user_id)
+        duration = int(math.ceil(duration)) if duration else None
+        try:
+            if await self.check_inlinebot(self.inline, chat):
+                with contextlib.suppress(Exception):
+                    if isinstance(user, Channel):
+                        return await self.inline.bot.ban_chat_sender_chat(
+                            chat_id
+                            if str(chat_id).startswith("-100")
+                            else int(f"-100{chat_id}"),
+                            user_id
+                            if str(user_id).startswith("-100")
+                            else int(f"-100{user_id}"),
+                        )
+                    return await self.inline.bot.kick_chat_member(
+                        chat_id
+                        if str(chat_id).startswith("-100")
+                        else int(f"-100{chat_id}"),
+                        user_id,
+                    )
+            await self._client(
+                EditBannedRequest(
+                    chat_id,
+                    user_id,
+                    ChatBannedRights(timedelta(minutes=duration), view_messages=True),
+                )
+            )
+        except Exception as exc:  # skipcq: PYL-W0703
+            self.utils.log(
+                logging.ERROR,
+                self._libclassname,
+                f"Unable to ban user {user_id} in chat {chat_id} for duration:"
+                f" {duration}min",
+                debug_msg=True,
+            )
+
+    async def delete_message(
+        self,
+        message: Message = None,
+    ):
+        """
+        Deletes a message in a chat
+        :param message: The message to delete
+        :return: True if the message was deleted, False if not
+        """
+        chat_id = utils.get_chat_id(message)
+        chat = await self._client.get_entity(chat_id)
+        try:
+            if await self.check_inlinebot(self.inline, chat):
+                try:
+                    await self.inline.bot.delete_message(
+                        chat_id
+                        if str(chat_id).startswith("-100")
+                        else int(f"-100{chat_id}"),
+                        message.id,
+                    )
+                    return
+                except MessageToDeleteNotFound:
+                    pass
+                except (MessageCantBeDeleted, BotKicked, ChatNotFound):
+                    pass
+            return await message.delete()
+        except Exception as exc:  # skipcq: PYL-W0703
+            self.utils.log(
+                logging.ERROR,
+                self._libclassname,
+                f"Unable to delete {message.id} in {chat_id}!",
+                debug_msg=True,
+            )
+
+    # def log_old(
+    #     self,
+    #     level: int,
+    #     name: str,
+    #     message: str,
+    #     *args,
+    #     **kwargs,
+    # ):
+    #     """
+    #     Logs a message to the console
+    #     :param level: The logging level
+    #     :param name: The name of the module
+    #     :param message: The message to log
+    #     :param args: Any additional arguments
+    #     :param kwargs: Any additional keyword arguments
+    #     :param debug_msg: Whether to log the message as a defined debug message
+    #     :return: None
+    #     """
+    #     if "debug_msg" in kwargs:
+    #         debug_msg = True
+    #         kwargs.pop("debug_msg")
+    #     else:
+    #         debug_msg = False
+    #     apo_logger = logging.getLogger(name)
+    #     if (
+    #         not debug_msg and self.lib.config["log_channel"] and level == logging.DEBUG
+    #     ) or (debug_msg and self.lib.config["log_debug"] and level == logging.DEBUG):
+    #         return apo_logger.log(logging.INFO, message, *args, **kwargs)
+    #     return apo_logger.log(level, message, *args, **kwargs)
 
 
 class ApodiktumInternal(loader.Module):
@@ -1234,19 +1451,19 @@ class ApodiktumInternal(loader.Module):
         :return: None
         """
         if self._db.get(main.__name__, "stats", True):
-                await asyncio.sleep(8)
-                urls = [
-                    "https://raw.githubusercontent.com/anon97945/hikka-libs/master/apodiktum_library.py",
-                    "https://raw.githubusercontent.com/anon97945/hikka-mods/master/total_users.py",
-                ]
-                if not getattr(self, "apodiktum_module", False):
-                    urls.append(
-                        "https://raw.githubusercontent.com/anon97945/hikka-mods/master/ApoLib_others.py"
-                    )
-                while True:
-                    for url in urls:
-                        asyncio.ensure_future(self.__send_stats_handler(url))
-                    await asyncio.sleep(6 * 60 * 60)  # 6 hours
+            await asyncio.sleep(8)
+            urls = [
+                "https://raw.githubusercontent.com/anon97945/hikka-libs/master/apodiktum_library.py",
+                "https://raw.githubusercontent.com/anon97945/hikka-mods/master/total_users.py",
+            ]
+            if not getattr(self, "apodiktum_module", False):
+                urls.append(
+                    "https://raw.githubusercontent.com/anon97945/hikka-mods/master/ApoLib_others.py"
+                )
+            while True:
+                for url in urls:
+                    asyncio.ensure_future(self.__send_stats_handler(url))
+                await asyncio.sleep(6 * 60 * 60)  # 6 hours
 
     def _is_apodiktum_module(self):
         """

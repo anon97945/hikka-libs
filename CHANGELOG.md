@@ -1,5 +1,10 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.0.20
+### 📦 apodiktum_library:
+#### Utils_Beta:
+- adding admin functions and inlinebot promotion/checks/invite
+
 ## 🆕 Version 2.0.2
 ### 📦 apodiktum_library:
 #### General:
