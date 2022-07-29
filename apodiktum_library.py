@@ -526,30 +526,30 @@ class ApodiktumUtils(loader.Module):
         if isinstance(user, Channel):
             if WithID:
                 return (
-                    f"<a href=tg://resolve?domain={user.username}>{user.title}</a>"
+                    f"<a href='tg://resolve?domain={user.username}'>{user.title}</a>"
                     f" (<code>{str(user.id)}</code>)"
                     if user.username
                     else f"{user.title}(<code>{str(user.id)}</code>)"
                 )
             return (
-                f"<a href=tg://resolve?domain={user.username}>{user.title}</a>"
+                f"<a href='tg://resolve?domain={user.username}'>{user.title}</a>"
                 if user.username
                 else f"{user.title}"
             )
         if WithID:
             return (
-                f"<a href=tg://resolve?domain={user.username}>{user.first_name}</a>"
+                f"<a href='tg://resolve?domain={user.username}'>{user.first_name}</a>"
                 f" (<code>{str(user.id)}</code>)"
                 if user.username
                 else (
-                    f"<a href=tg://user?id={str(user.id)}>{user.first_name}</a>"
+                    f"<a href='tg://user?id={str(user.id)}'>{user.first_name}</a>"
                     f" (<code>{str(user.id)}</code>)"
                 )
             )
         return (
-            f"<a href=tg://resolve?domain={user.username}>{user.first_name}</a>"
+            f"<a href='tg://resolve?domain={user.username}'>{user.first_name}</a>"
             if user.username
-            else f"<a href=tg://user?id={str(user.id)}>{user.first_name}</a>"
+            else f"<a href='tg://user?id={str(user.id)}'>{user.first_name}</a>"
         )
 
     async def get_tag_link(self, user: Union[Chat, int]) -> str:
