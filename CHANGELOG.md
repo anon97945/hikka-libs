@@ -1,5 +1,16 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.0.3
+### 📦 apodiktum_library:
+#### Utils:
+- added | check_inlinebot
+- added | promote_bot
+- added | mute
+- added | kick
+- added | ban
+- added | delete_message
+- fixed | get_tag
+
 ## 🆕 Version 2.0.2
 ### 📦 apodiktum_library:
 #### General:

@@ -1,4 +1,4 @@
-__version__ = (2, 0, 25)
+__version__ = (2, 0, 26)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -1104,50 +1104,6 @@ class ApodiktumUtils(loader.Module):
         """
         return self.time_formatter(utils.uptime(), short)
 
-
-class ApodiktumUtilsBeta(loader.Module):
-    """
-    Apodiktum Utils Beta, just for testing purposes
-    """
-
-    def __init__(
-        self,
-        lib: loader.Library,
-    ):
-        self.utils = lib.utils
-        self.utils.log(
-            logging.DEBUG,
-            lib.__class__.__name__,
-            "class ApodiktumUtilsBeta is being initiated!",
-            debug_msg=True,
-        )
-        self.lib = lib
-        self._db = lib.db
-        self._client = lib.client
-        self.inline = lib.allmodules.inline
-        self._libclassname = self.lib.__class__.__name__
-        self._lib_db = self._db.setdefault(self._libclassname, {})
-        self._chats_db = self._lib_db.setdefault("chats", {})
-        self.utils.log(
-            logging.DEBUG,
-            lib.__class__.__name__,
-            "Congratulations! You have access to the ApodiktumUtilsBeta!",
-        )
-
-    async def _refresh_lib(
-        self,
-        lib: loader.Library,
-    ):
-        """
-        !do not use this method directly!
-        Refreshes the class with the current state of the library
-        :param lib: The library class
-        :return: None
-        """
-        self.lib = lib
-        self.utils = lib.utils
-        self.imports = lib.importer
-
     async def check_inlinebot(
         self,
         chat_id: int,
@@ -1385,6 +1341,50 @@ class ApodiktumUtilsBeta(loader.Module):
                 f"Unable to delete {message.id} in {chat_id}!\nError: {exc}",
                 debug_msg=True,
             )
+
+
+class ApodiktumUtilsBeta(loader.Module):
+    """
+    Apodiktum Utils Beta, just for testing purposes
+    """
+
+    def __init__(
+        self,
+        lib: loader.Library,
+    ):
+        self.utils = lib.utils
+        self.utils.log(
+            logging.DEBUG,
+            lib.__class__.__name__,
+            "class ApodiktumUtilsBeta is being initiated!",
+            debug_msg=True,
+        )
+        self.lib = lib
+        self._db = lib.db
+        self._client = lib.client
+        self.inline = lib.allmodules.inline
+        self._libclassname = self.lib.__class__.__name__
+        self._lib_db = self._db.setdefault(self._libclassname, {})
+        self._chats_db = self._lib_db.setdefault("chats", {})
+        self.utils.log(
+            logging.DEBUG,
+            lib.__class__.__name__,
+            "Congratulations! You have access to the ApodiktumUtilsBeta!",
+        )
+
+    async def _refresh_lib(
+        self,
+        lib: loader.Library,
+    ):
+        """
+        !do not use this method directly!
+        Refreshes the class with the current state of the library
+        :param lib: The library class
+        :return: None
+        """
+        self.lib = lib
+        self.utils = lib.utils
+        self.imports = lib.importer
 
     # def log_old(
     #     self,
