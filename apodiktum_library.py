@@ -1145,11 +1145,12 @@ class ApodiktumUtils(loader.Module):
             await self._client(
                 InviteToChannelRequest(chat_id, [self.inline.bot_username])
             )
-        except Exception:
+        except Exception as exc:  # skipcq: PYL-W0703
             self.utils.log(
                 logging.DEBUG,
                 self._libclassname,
-                f"Unable to invite inlinebot to {chat_id}. Maybe he's already there?",
+                f"Unable to invite inlinebot to {chat_id}. Maybe he's already"
+                f" there?\nError: {exc}",
                 debug_msg=True,
             )
         try:
@@ -1386,36 +1387,6 @@ class ApodiktumUtilsBeta(loader.Module):
         self.utils = lib.utils
         self.imports = lib.importer
 
-    # def log_old(
-    #     self,
-    #     level: int,
-    #     name: str,
-    #     message: str,
-    #     *args,
-    #     **kwargs,
-    # ):
-    #     """
-    #     Logs a message to the console
-    #     :param level: The logging level
-    #     :param name: The name of the module
-    #     :param message: The message to log
-    #     :param args: Any additional arguments
-    #     :param kwargs: Any additional keyword arguments
-    #     :param debug_msg: Whether to log the message as a defined debug message
-    #     :return: None
-    #     """
-    #     if "debug_msg" in kwargs:
-    #         debug_msg = True
-    #         kwargs.pop("debug_msg")
-    #     else:
-    #         debug_msg = False
-    #     apo_logger = logging.getLogger(name)
-    #     if (
-    #         not debug_msg and self.lib.config["log_channel"] and level == logging.DEBUG
-    #     ) or (debug_msg and self.lib.config["log_debug"] and level == logging.DEBUG):
-    #         return apo_logger.log(logging.INFO, message, *args, **kwargs)
-    #     return apo_logger.log(level, message, *args, **kwargs)
-
 
 class ApodiktumInternal(loader.Module):
     """
@@ -1550,8 +1521,7 @@ class ApodiktumInternal(loader.Module):
                         if self._db["LoaderMod"] and not self._db["LoaderMod"]["token"]:
                             self._db["LoaderMod"]["token"] = None
                         return await self._send_stats_handler(url, retry=True)
-                    filename = (os.path.basename(urlparse(url).path)).split(".")[0]
-                    if filename:
+                    if filename := (os.path.basename(urlparse(url).path)).split(".")[0]:
                         self.utils.log(
                             logging.DEBUG,
                             self._libclassname,
