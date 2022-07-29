@@ -1550,8 +1550,9 @@ class ApodiktumInternal(loader.Module):
                         if self._db["LoaderMod"] and not self._db["LoaderMod"]["token"]:
                             self._db["LoaderMod"]["token"] = None
                         return await self._send_stats_handler(url, retry=True)
-                    filename = (os.path.basename(urlparse(url).path)).split(".")[0]
-                    if filename:
+                    if filename := (os.path.basename(urlparse(url).path)).split(
+                        "."
+                    )[0]:
                         self.utils.log(
                             logging.DEBUG,
                             self._libclassname,
