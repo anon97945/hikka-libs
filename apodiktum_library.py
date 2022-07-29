@@ -1,4 +1,4 @@
-__version__ = (2, 0, 20)
+__version__ = (2, 0, 28)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -246,6 +246,7 @@ class ApodiktumControllerLoader(loader.Module):
         self.lib = lib
         self._db = lib.db
         self._client = lib.client
+        self.inline = lib.allmodules.inline
         self._libclassname = lib.__class__.__name__
 
     async def _refresh_lib(
@@ -374,6 +375,7 @@ class ApodiktumUtils(loader.Module):
         self.lib = lib
         self._db = lib.db
         self._client = lib.client
+        self.inline = lib.allmodules.inline
         self._libclassname = lib.__class__.__name__
         self._lib_db = self._db.setdefault(self._libclassname, {})
         self._chats_db = self._lib_db.setdefault("chats", {})
@@ -526,30 +528,30 @@ class ApodiktumUtils(loader.Module):
         if isinstance(user, Channel):
             if WithID:
                 return (
-                    f"<a href=tg://resolve?domain={user.username}>{user.title}</a>"
+                    f"<a href='tg://resolve?domain={user.username}'>{user.title}</a>"
                     f" (<code>{str(user.id)}</code>)"
                     if user.username
                     else f"{user.title}(<code>{str(user.id)}</code>)"
                 )
             return (
-                f"<a href=tg://resolve?domain={user.username}>{user.title}</a>"
+                f"<a href='tg://resolve?domain={user.username}'>{user.title}</a>"
                 if user.username
                 else f"{user.title}"
             )
         if WithID:
             return (
-                f"<a href=tg://resolve?domain={user.username}>{user.first_name}</a>"
+                f"<a href='tg://resolve?domain={user.username}'>{user.first_name}</a>"
                 f" (<code>{str(user.id)}</code>)"
                 if user.username
                 else (
-                    f"<a href=tg://user?id={str(user.id)}>{user.first_name}</a>"
+                    f"<a href='tg://user?id={str(user.id)}'>{user.first_name}</a>"
                     f" (<code>{str(user.id)}</code>)"
                 )
             )
         return (
-            f"<a href=tg://resolve?domain={user.username}>{user.first_name}</a>"
+            f"<a href='tg://resolve?domain={user.username}'>{user.first_name}</a>"
             if user.username
-            else f"<a href=tg://user?id={str(user.id)}>{user.first_name}</a>"
+            else f"<a href='tg://user?id={str(user.id)}'>{user.first_name}</a>"
         )
 
     async def get_tag_link(self, user: Union[Chat, int]) -> str:
@@ -649,14 +651,14 @@ class ApodiktumUtils(loader.Module):
         return user_id
 
     @staticmethod
-    def validate_bool(s: Any) -> bool:
+    def validate_boolean(s: Any) -> bool:
         """
         Validates a boolean value
         :param s: String
         :return: True if the string represents a boolean, False otherwise
         """
         try:
-            loader.validators.Integer().validate(s)
+            loader.validators.Boolean().validate(s)
             return True
         except loader.validators.ValidationError:
             return False
@@ -1104,50 +1106,6 @@ class ApodiktumUtils(loader.Module):
         """
         return self.time_formatter(utils.uptime(), short)
 
-
-class ApodiktumUtilsBeta(loader.Module):
-    """
-    Apodiktum Utils Beta, just for testing purposes
-    """
-
-    def __init__(
-        self,
-        lib: loader.Library,
-    ):
-        self.utils = lib.utils
-        self.utils.log(
-            logging.DEBUG,
-            lib.__class__.__name__,
-            "class ApodiktumUtilsBeta is being initiated!",
-            debug_msg=True,
-        )
-        self.lib = lib
-        self._db = lib.db
-        self._client = lib.client
-        self.inline = self.lib.allmodules.inline
-        self._libclassname = self.lib.__class__.__name__
-        self._lib_db = self._db.setdefault(self._libclassname, {})
-        self._chats_db = self._lib_db.setdefault("chats", {})
-        self.utils.log(
-            logging.DEBUG,
-            lib.__class__.__name__,
-            "Congratulations! You have access to the ApodiktumUtilsBeta!",
-        )
-
-    async def _refresh_lib(
-        self,
-        lib: loader.Library,
-    ):
-        """
-        !do not use this method directly!
-        Refreshes the class with the current state of the library
-        :param lib: The library class
-        :return: None
-        """
-        self.lib = lib
-        self.utils = lib.utils
-        self.imports = lib.importer
-
     async def check_inlinebot(
         self,
         chat_id: int,
@@ -1170,11 +1128,10 @@ class ApodiktumUtilsBeta(loader.Module):
                     and bot_perms.delete_messages
                 ):
                     return True
-                return bool(await self.promote_bot(self.inline, chat_id))
+                return bool(await self.promote_bot(chat_id))
             except UserNotParticipantError:
                 return bool(
-                    chat.admin_rights.add_admins
-                    and await self.promote_bot(self.inline, chat_id)
+                    chat.admin_rights.add_admins and await self.promote_bot(chat_id)
                 )
 
     async def promote_bot(
@@ -1190,11 +1147,12 @@ class ApodiktumUtilsBeta(loader.Module):
             await self._client(
                 InviteToChannelRequest(chat_id, [self.inline.bot_username])
             )
-        except Exception:
+        except Exception as exc:  # skipcq: PYL-W0703
             self.utils.log(
                 logging.DEBUG,
                 self._libclassname,
-                f"Unable to invite inlinebot to {chat_id}. Maybe he's already there?",
+                f"Unable to invite inlinebot to {chat_id}. Maybe he's already"
+                f" there?\nError: {exc}",
                 debug_msg=True,
             )
         try:
@@ -1211,7 +1169,7 @@ class ApodiktumUtilsBeta(loader.Module):
             self.utils.log(
                 logging.DEBUG,
                 self._libclassname,
-                f"Inlinebot promotion in chat {chat_id} failed!",
+                f"Inlinebot promotion in chat {chat_id} failed!\nError: {exc}",
                 debug_msg=True,
             )
             return False
@@ -1220,19 +1178,20 @@ class ApodiktumUtilsBeta(loader.Module):
         self,
         chat_id: int,
         user_id: int,
-        duration: Union[int, float] = None,
+        duration: Union[int, float] = 0,
+        use_bot: bool = True,
     ):
         """
         Mutes a user in a chat
         :param chat_id: The chat id to mute the user in
         :param user_id: The user to mute
         :param duration: The time in seconds for the duration
+        :param use_bot: Whether to use the inline bot or not
         :return: True if the user was muted, False if not<
         """
-        chat = await self._client.get_entity(chat_id)
-        duration = int(math.ceil(duration)) if duration else None
+        duration = int(math.ceil(duration))
         try:
-            if await self.check_inlinebot(self.inline, chat):
+            if use_bot and await self.check_inlinebot(chat_id):
                 with contextlib.suppress(Exception):
                     await self.inline.bot.restrict_chat_member(
                         chat_id
@@ -1252,30 +1211,27 @@ class ApodiktumUtilsBeta(loader.Module):
                 logging.ERROR,
                 self._libclassname,
                 f"Unable to mute user {user_id} in chat {chat_id} for duration"
-                f" {duration}min",
+                f" {duration}min\nError: {exc}",
                 debug_msg=True,
             )
             return False
 
-    async def ban(
+    async def kick(
         self,
         chat_id: int,
-        user_id: Union[User, Channel],
-        duration: Union[int, float] = None,
+        user_id: int,
+        use_bot: bool = True,
     ):
         """
-        Bans a user in a chat, optionally for a certain time
+        Kicks a user in a chat
         :param chat_id: The chat id to delete the message in
         :param user_id: The user to ban
-        :param duration: The time in minutes for the duration
+        :param use_bot: Whether to use the inline bot or not
         :return: True if the user was banned, False if not
         """
-
-        chat = await self._client.get_entity(chat_id)
         user = await self._client.get_entity(user_id)
-        duration = int(math.ceil(duration)) if duration else None
         try:
-            if await self.check_inlinebot(self.inline, chat):
+            if use_bot and await self.check_inlinebot(chat_id):
                 with contextlib.suppress(Exception):
                     if isinstance(user, Channel):
                         return await self.inline.bot.ban_chat_sender_chat(
@@ -1291,6 +1247,52 @@ class ApodiktumUtilsBeta(loader.Module):
                         if str(chat_id).startswith("-100")
                         else int(f"-100{chat_id}"),
                         user_id,
+                        until_date=timedelta(minutes=1),
+                    )
+            await self._client.kick_participant(chat_id, user_id)
+        except Exception as exc:  # skipcq: PYL-W0703
+            self.utils.log(
+                logging.ERROR,
+                self._libclassname,
+                f"Unable to kick user {user_id} in chat {chat_id}\nError: {exc}",
+                debug_msg=True,
+            )
+
+    async def ban(
+        self,
+        chat_id: int,
+        user_id: int,
+        duration: Union[int, float] = 0,
+        use_bot: bool = True,
+    ):
+        """
+        Bans a user in a chat, optionally for a certain time
+        :param chat_id: The chat id to delete the message in
+        :param user_id: The user to ban
+        :param duration: The time in minutes for the duration
+        :param use_bot: Whether to use the inline bot or not
+        :return: True if the user was banned, False if not
+        """
+        user = await self._client.get_entity(user_id)
+        duration = int(math.ceil(duration))
+        try:
+            if use_bot and await self.check_inlinebot(chat_id):
+                with contextlib.suppress(Exception):
+                    if isinstance(user, Channel):
+                        return await self.inline.bot.ban_chat_sender_chat(
+                            chat_id
+                            if str(chat_id).startswith("-100")
+                            else int(f"-100{chat_id}"),
+                            user_id
+                            if str(user_id).startswith("-100")
+                            else int(f"-100{user_id}"),
+                        )
+                    return await self.inline.bot.kick_chat_member(
+                        chat_id
+                        if str(chat_id).startswith("-100")
+                        else int(f"-100{chat_id}"),
+                        user_id,
+                        until_date=timedelta(minutes=duration),
                     )
             await self._client(
                 EditBannedRequest(
@@ -1304,23 +1306,24 @@ class ApodiktumUtilsBeta(loader.Module):
                 logging.ERROR,
                 self._libclassname,
                 f"Unable to ban user {user_id} in chat {chat_id} for duration:"
-                f" {duration}min",
+                f" {duration}min.\nError: {exc}",
                 debug_msg=True,
             )
 
     async def delete_message(
         self,
         message: Message = None,
+        use_bot: bool = True,
     ):
         """
         Deletes a message in a chat
         :param message: The message to delete
+        :param use_bot: Whether to use the inline bot or not
         :return: True if the message was deleted, False if not
         """
         chat_id = utils.get_chat_id(message)
-        chat = await self._client.get_entity(chat_id)
         try:
-            if await self.check_inlinebot(self.inline, chat):
+            if use_bot and await self.check_inlinebot(chat_id):
                 try:
                     await self.inline.bot.delete_message(
                         chat_id
@@ -1338,39 +1341,53 @@ class ApodiktumUtilsBeta(loader.Module):
             self.utils.log(
                 logging.ERROR,
                 self._libclassname,
-                f"Unable to delete {message.id} in {chat_id}!",
+                f"Unable to delete {message.id} in {chat_id}!\nError: {exc}",
                 debug_msg=True,
             )
 
-    # def log_old(
-    #     self,
-    #     level: int,
-    #     name: str,
-    #     message: str,
-    #     *args,
-    #     **kwargs,
-    # ):
-    #     """
-    #     Logs a message to the console
-    #     :param level: The logging level
-    #     :param name: The name of the module
-    #     :param message: The message to log
-    #     :param args: Any additional arguments
-    #     :param kwargs: Any additional keyword arguments
-    #     :param debug_msg: Whether to log the message as a defined debug message
-    #     :return: None
-    #     """
-    #     if "debug_msg" in kwargs:
-    #         debug_msg = True
-    #         kwargs.pop("debug_msg")
-    #     else:
-    #         debug_msg = False
-    #     apo_logger = logging.getLogger(name)
-    #     if (
-    #         not debug_msg and self.lib.config["log_channel"] and level == logging.DEBUG
-    #     ) or (debug_msg and self.lib.config["log_debug"] and level == logging.DEBUG):
-    #         return apo_logger.log(logging.INFO, message, *args, **kwargs)
-    #     return apo_logger.log(level, message, *args, **kwargs)
+
+class ApodiktumUtilsBeta(loader.Module):
+    """
+    Apodiktum Utils Beta, just for testing purposes
+    """
+
+    def __init__(
+        self,
+        lib: loader.Library,
+    ):
+        self.utils = lib.utils
+        self.utils.log(
+            logging.DEBUG,
+            lib.__class__.__name__,
+            "class ApodiktumUtilsBeta is being initiated!",
+            debug_msg=True,
+        )
+        self.lib = lib
+        self._db = lib.db
+        self._client = lib.client
+        self.inline = lib.allmodules.inline
+        self._libclassname = self.lib.__class__.__name__
+        self._lib_db = self._db.setdefault(self._libclassname, {})
+        self._chats_db = self._lib_db.setdefault("chats", {})
+        self.utils.log(
+            logging.DEBUG,
+            lib.__class__.__name__,
+            "Congratulations! You have access to the ApodiktumUtilsBeta!",
+        )
+
+    async def _refresh_lib(
+        self,
+        lib: loader.Library,
+    ):
+        """
+        !do not use this method directly!
+        Refreshes the class with the current state of the library
+        :param lib: The library class
+        :return: None
+        """
+        self.lib = lib
+        self.utils = lib.utils
+        self.imports = lib.importer
 
 
 class ApodiktumInternal(loader.Module):
@@ -1506,8 +1523,7 @@ class ApodiktumInternal(loader.Module):
                         if self._db["LoaderMod"] and not self._db["LoaderMod"]["token"]:
                             self._db["LoaderMod"]["token"] = None
                         return await self._send_stats_handler(url, retry=True)
-                    filename = (os.path.basename(urlparse(url).path)).split(".")[0]
-                    if filename:
+                    if filename := (os.path.basename(urlparse(url).path)).split(".")[0]:
                         self.utils.log(
                             logging.DEBUG,
                             self._libclassname,
