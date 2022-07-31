@@ -1,5 +1,10 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.0.4
+### 📦 apodiktum_library:
+#### General:
+- black formatting
+
 ## 🆕 Version 2.0.3
 ### 📦 apodiktum_library:
 #### Utils:
