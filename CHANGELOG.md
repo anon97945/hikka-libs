@@ -3,6 +3,11 @@
 ## 🆕 Version 2.0.4
 ### 📦 apodiktum_library:
 #### General:
+- changed copyright banner
+
+## 🆕 Version 2.0.4
+### 📦 apodiktum_library:
+#### General:
 - black formatting
 
 ## 🆕 Version 2.0.3

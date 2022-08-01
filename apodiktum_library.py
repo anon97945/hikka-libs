@@ -1,4 +1,4 @@
-__version__ = (2, 0, 29)
+__version__ = (2, 0, 30)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -9,12 +9,13 @@ __version__ = (2, 0, 29)
 #        developed by @anon97945
 #
 #     https://t.me/apodiktum_modules
+#      https://github.com/anon97945
 #
 # 🔒 Licensed under the GNU GPLv3
 # 🌐 https://www.gnu.org/licenses/gpl-3.0.html
 
 # meta developer: @apodiktum_modules
-# meta banner: https://i.ibb.co/N7c0Ks2/cat.jpg
+# meta banner: https://t.me/file_dumbster/11
 # meta pic: https://i.ibb.co/4jLTywZ/apo-modules.jpg
 
 # apodiktum_scopes:
