@@ -1,4 +1,4 @@
-__version__ = (2, 0, 30)
+__version__ = (2, 0, 37)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -16,12 +16,13 @@ __version__ = (2, 0, 30)
 
 # meta developer: @apodiktum_modules
 # meta banner: https://t.me/file_dumbster/11
-# meta pic: https://i.ibb.co/4jLTywZ/apo-modules.jpg
+# meta pic: https://t.me/file_dumbster/13
 
-# apodiktum_scopes:
+# scope: hikka_min 1.2.13
+# requires: emoji alphabet_detector
+
 __hikka_min__ = (1, 2, 11)
 __requires__ = ["alphabet_detector", "emoji"]
-
 
 import ast
 import asyncio
@@ -490,8 +491,8 @@ class ApodiktumUtils(loader.Module):
         """
         if chat_id != self._client.tg_id:
             try:
-                await self._client.get_permissions(chat_id, user_id)
-                return True
+                perms = await self._client.get_permissions(chat_id, user_id)
+                return not perms.is_banned
             except UserNotParticipantError:
                 return False
 
@@ -664,8 +665,7 @@ class ApodiktumUtils(loader.Module):
         :return: True if the string represents a boolean, False otherwise
         """
         try:
-            loader.validators.Boolean().validate(s)
-            return True
+            return loader.validators.Boolean().validate(s)
         except loader.validators.ValidationError:
             return False
 
@@ -1115,44 +1115,46 @@ class ApodiktumUtils(loader.Module):
     async def check_inlinebot(
         self,
         chat_id: int,
+        invite_bot: bool = True,
+        promote_bot: bool = True,
     ):
         """
         Check if the inline bot is in the chat and has the correct permissions
-        Else try to add it and set the permissions
         :param chat_id: Chat ID
         :return: True if the inline bot is in the chat and has the correct permissions, False otherwise
         """
-        chat = await self._client.get_entity(chat_id)
-        if chat_id != self._client.tg_id:
-            try:
-                bot_perms = await self._client.get_permissions(
-                    chat_id, self.inline.bot_id
-                )
-                if (
-                    bot_perms.is_admin
-                    and bot_perms.ban_users
-                    and bot_perms.delete_messages
-                ):
-                    return True
-                return bool(await self.promote_bot(chat_id))
-            except UserNotParticipantError:
-                return bool(
-                    chat.admin_rights.add_admins and await self.promote_bot(chat_id)
-                )
+        if chat_id == self._client.tg_id:
+            return
+        try:
+            perms = await self._client.get_permissions(chat_id, self.inline.bot_id)
+            if perms.is_banned and not invite_bot and not promote_bot:
+                return False
+            if promote_bot:
+                return bool(await self.promote_bot(chat_id)) if promote_bot else True
+            if invite_bot:
+                return bool(await self.invite_bot(chat_id))
+        except UserNotParticipantError:
+            if invite_bot:
+                invited = bool(await self.invite_bot(chat_id))
+            if promote_bot:
+                promoted = bool(await self.promote_bot(chat_id))
+            if invited and promoted:
+                return True
+            if promote_bot:
+                return promoted
+            return invited if invite_bot else False
 
-    async def promote_bot(
-        self,
-        chat_id: int,
-    ):
+    async def invite_bot(self, chat_id: int) -> bool:
         """
-        Adds and sets the permissions for the inline bot
-        :param chat_id: The chat to promote the bot to admin in
-        :return: True if the bot was promoted, False if not
+        Invite the bot to a chat
+        :param chat_id: Chat ID
+        :return: True if the bot was invited, False otherwise
         """
         try:
             await self._client(
                 InviteToChannelRequest(chat_id, [self.inline.bot_username])
             )
+            return True
         except Exception as exc:  # skipcq: PYL-W0703
             self.utils.log(
                 logging.DEBUG,
@@ -1161,16 +1163,33 @@ class ApodiktumUtils(loader.Module):
                 f" there?\nError: {exc}",
                 debug_msg=True,
             )
+            return False
+
+    async def promote_bot(
+        self,
+        chat_id: int,
+    ) -> bool:
+        """
+        sets the permissions for the inline bot
+        :param chat_id: The chat to promote the bot to admin in
+        :return: True if the bot was promoted, False if not
+        """
         try:
-            await self._client(
-                EditAdminRequest(
-                    channel=chat_id,
-                    user_id=self.inline.bot_username,
-                    admin_rights=ChatAdminRights(ban_users=True, delete_messages=True),
-                    rank="Bot",
+            bot_perms = await self._client.get_permissions(chat_id, self.inline.bot_id)
+            if not (
+                bot_perms.is_admin and bot_perms.ban_users and bot_perms.delete_messages
+            ):
+                await self._client(
+                    EditAdminRequest(
+                        channel=chat_id,
+                        user_id=self.inline.bot_username,
+                        admin_rights=ChatAdminRights(
+                            ban_users=True, delete_messages=True
+                        ),
+                        rank="Bot",
+                    )
                 )
-            )
-            return True
+                return True
         except Exception as exc:  # skipcq: PYL-W0703
             self.utils.log(
                 logging.DEBUG,
@@ -1345,7 +1364,11 @@ class ApodiktumUtils(loader.Module):
                     pass
                 except (MessageCantBeDeleted, BotKicked, ChatNotFound):
                     pass
-            return await message.delete()
+            return await self._client.delete_messages(
+                chat_id,
+                getattr(message, "id", None) or getattr(message, "message_id", None),
+            )
+            # return await message.delete()
         except Exception as exc:  # skipcq: PYL-W0703
             self.utils.log(
                 logging.ERROR,
@@ -2154,8 +2177,8 @@ class ApodiktumImporter(loader.Module):
                     self._libclassname,
                     self.utils.get_str("requirements_installed", self.all_strings),
                 )
-        except Exception as e:  # skipcq: PYL-W0703
-            requirements += [e.name]
+        except Exception as exc:  # skipcq: PYL-W0703
+            requirements += [exc.name]
             requirements = self.utils.rem_duplicates_list(requirements)
             self.utils.log(
                 logging.DEBUG,
@@ -2178,7 +2201,7 @@ class ApodiktumImporter(loader.Module):
                         self._libclassname,
                         self.utils.get_str(
                             "requirements_restart", self.all_strings
-                        ).format(e.name),
+                        ).format(exc.name),
                     )
                 return
             self.utils.log(

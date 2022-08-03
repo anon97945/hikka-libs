@@ -1,6 +1,19 @@
 # 📝 Library Changelog:
 
-## 🆕 Version 2.0.4
+## 🆕 Version 2.0.7
+### 📦 apodiktum_library:
+#### Utils:
+- changed | check_inlinebot
+- changed | invite_bot
+- changed | promote_bot
+- fixed | is_member
+
+## 🆕 Version 2.0.6
+### 📦 apodiktum_library:
+#### General:
+- changed copyright banner
+
+## 🆕 Version 2.0.5
 ### 📦 apodiktum_library:
 #### General:
 - changed copyright banner
