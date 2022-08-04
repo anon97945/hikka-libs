@@ -1,5 +1,11 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.0.10
+### 📦 apodiktum_library:
+#### Utils:
+- add | get_file_from_url
+- add | get_first_msg
+
 ## 🆕 Version 2.0.9
 ### 📦 apodiktum_library:
 #### General:

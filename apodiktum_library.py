@@ -1,4 +1,4 @@
-__version__ = (2, 0, 47)
+__version__ = (2, 0, 59)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -28,12 +28,13 @@ import contextlib
 import copy
 import hashlib
 import html
+import io
 import logging
 import math
 import os
 import re
 from datetime import datetime, timedelta
-from typing import Any, Optional, Union, Tuple
+from typing import Any, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 import aiohttp
@@ -473,12 +474,11 @@ class ApodiktumUtils(loader.Module):
         :param user_id: User ID
         :return: True if user is a member of the chat, False otherwise
         """
-        if chat_id != self._client.tg_id:
-            try:
-                perms = await self._client.get_permissions(chat_id, user_id)
-                return not perms.is_banned
-            except UserNotParticipantError:
-                return False
+        try:
+            perms = await self._client.get_permissions(chat_id, user_id)
+            return not perms.is_banned
+        except UserNotParticipantError:
+            return False
 
     @staticmethod
     async def get_buttons(
@@ -628,13 +628,16 @@ class ApodiktumUtils(loader.Module):
                                 try:
                                     user_id = message.peer_id.channel_id
                                 except Exception:  # skipcq: PYL-W0703
-                                    self.log(
-                                        logging.DEBUG,
-                                        self._libclassname,
-                                        "Can't extract entity from event"
-                                        f" {type(message)}",
-                                    )
-                                    return
+                                    try:
+                                        user_id = message.from_id
+                                    except Exception:  # skipcq: PYL-W0703
+                                        self.log(
+                                            logging.DEBUG,
+                                            self._libclassname,
+                                            "Can't extract entity from event"
+                                            f" {type(message)}",
+                                        )
+                                        return
         if str(user_id).startswith("-100") and strip:
             user_id = int(str(user_id)[4:])
         else:
@@ -892,6 +895,18 @@ class ApodiktumUtils(loader.Module):
         return urls
 
     @staticmethod
+    async def get_file_from_url(url):
+        """
+        Get file from url
+        :param url: url
+        :return: file
+        """
+        text = (await utils.run_sync(requests.get, url)).text
+        file = io.BytesIO(bytes(text, "utf-8"))
+        file.name = url.split("/")[-1]
+        return file, file.name
+
+    @staticmethod
     def rem_duplicates_list(s: list) -> list:
         """
         Remove duplicates from list
@@ -1096,6 +1111,19 @@ class ApodiktumUtils(loader.Module):
         """
         return self.time_formatter(utils.uptime(), short)
 
+    async def get_first_msg(self, message: Message):
+        """
+        Get the first message of the message thread
+        :param message: message
+        :return: message
+        """
+        reply = await self._client.get_messages(
+            utils.get_chat_id(message),
+            ids=getattr(getattr(message, "reply_to", None), "reply_to_top_id", None)
+            or getattr(getattr(message, "reply_to", None), "reply_to_msg_id", None),
+        )
+        return reply
+
     async def check_inlinebot(
         self,
         chat_id: int,
@@ -1208,11 +1236,21 @@ class ApodiktumUtils(loader.Module):
                             chat_id
                             if str(chat_id).startswith("-100")
                             else int(f"-100{chat_id}"),
-                            user_id,
+                            user_id
+                            if str(user_id).startswith("-100")
+                            else int(f"-100{user_id}"),
                             permissions=ChatPermissions(can_send_messages=False),
                             until_date=timedelta(minutes=duration),
                         )
-
+                        return True
+                    await self.inline.bot.restrict_chat_member(
+                        chat_id
+                        if str(chat_id).startswith("-100")
+                        else int(f"-100{chat_id}"),
+                        user_id,
+                        permissions=ChatPermissions(can_send_messages=False),
+                        until_date=timedelta(minutes=duration),
+                    )
                     return True
             await self._client.edit_permissions(
                 chat_id,
@@ -1239,12 +1277,11 @@ class ApodiktumUtils(loader.Module):
     ):
         """
         Unmutes a user in a chat
-        :param chat_id: The chat id to jnmute the user in
+        :param chat_id: The chat id to unmute the user in
         :param user_id: The user to unmute
         :param use_bot: Whether to use the inline bot or not
         :return: True if the user was muted, False if not<
         """
-        duration = int(math.ceil(duration))
         user = await self._client.get_entity(user_id)
         try:
             if use_bot and await self.check_inlinebot(chat_id):
@@ -1257,7 +1294,7 @@ class ApodiktumUtils(loader.Module):
                             user_id
                             if str(user_id).startswith("-100")
                             else int(f"-100{user_id}"),
-                            permissions=ChatPermissions(can_send_messages=False),
+                            permissions=ChatPermissions(can_send_messages=True),
                         )
                         return True
                     await self.inline.bot.restrict_chat_member(
@@ -1265,7 +1302,7 @@ class ApodiktumUtils(loader.Module):
                         if str(chat_id).startswith("-100")
                         else int(f"-100{chat_id}"),
                         user_id,
-                        permissions=ChatPermissions(can_send_messages=False),
+                        permissions=ChatPermissions(can_send_messages=True),
                     )
                     return True
             await self._client.edit_permissions(
@@ -1447,11 +1484,15 @@ class ApodiktumUtils(loader.Module):
         :return: True if the message was deleted, False if not
         """
         chat_id = utils.get_chat_id(message)
+        chat = await self._client.get_entity(chat_id)
         try:
+            message_id = getattr(message, "id", None) or getattr(
+                message, "message_id", None
+            )
             if (
                 use_bot
                 and await self.check_inlinebot(chat_id)
-                and not message.is_private
+                and isinstance(chat, (Channel, Chat))
             ):
                 with contextlib.suppress(
                     MessageCantBeDeleted,
@@ -1463,20 +1504,19 @@ class ApodiktumUtils(loader.Module):
                         chat_id
                         if str(chat_id).startswith("-100")
                         else int(f"-100{chat_id}"),
-                        getattr(message, "id", None)
-                        or getattr(message, "message_id", None),
+                        message_id,
                     )
                     return True
             await self._client.delete_messages(
                 chat_id,
-                getattr(message, "id", None) or getattr(message, "message_id", None),
+                message_id,
             )
             return True
         except Exception as exc:  # skipcq: PYL-W0703
             self.utils.log(
                 logging.ERROR,
                 self._libclassname,
-                f"Unable to delete {message.id} in {chat_id}!\nError: {exc}",
+                f"Unable to delete {message_id} in {chat_id}!\nError: {exc}",
                 debug_msg=True,
             )
             return False
@@ -1753,15 +1793,15 @@ class ApodiktumMigrator(loader.Module):
     """
 
     strings = {
-        "_log_doc_migrated_db": "Migrated {} database of {} -> {}:\n{}",
+        "_log_doc_migrated_db": "Migrated `{}` database of `{}` -> `{}`:\n{}",
         "_log_doc_migrated_cfgv_val": (
-            "[Dynamic={}] Migrated default config value:\n{} -> {}"
+            "[Dynamic={}] Migrated default config value:\n`{}` -> `{}`"
         ),
         "_log_doc_no_dynamic_migration": (
             "No module config found. Did not dynamic migrate:\n{{{}: {}}}"
         ),
         "_log_doc_migrated_db_not_found": (
-            "`{}` database not found. Did not migrate {} -> {}"
+            "`{}` database not found. Did not migrate `{}` -> `{}`"
         ),
     }
 
