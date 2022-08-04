@@ -1,5 +1,10 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.0.8
+### 📦 apodiktum_library:
+#### General:
+- refactor for Hikka 1.3.0
+
 ## 🆕 Version 2.0.7
 ### 📦 apodiktum_library:
 #### Utils:
