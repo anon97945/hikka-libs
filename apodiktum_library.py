@@ -1,4 +1,4 @@
-__version__ = (2, 0, 44)
+__version__ = (2, 0, 47)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -33,7 +33,7 @@ import math
 import os
 import re
 from datetime import datetime, timedelta
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, Tuple
 from urllib.parse import urlparse
 
 import aiohttp
@@ -49,10 +49,15 @@ from aiogram.utils.exceptions import (
 )
 from telethon.errors import UserNotParticipantError
 from telethon.tl.functions.channels import (
+    CreateChannelRequest,
     EditAdminRequest,
     EditBannedRequest,
     GetFullChannelRequest,
     InviteToChannelRequest,
+)
+from telethon.tl.functions.messages import (
+    GetDialogFiltersRequest,
+    UpdateDialogFilterRequest,
 )
 from telethon.tl.types import (
     Channel,
@@ -233,7 +238,7 @@ class ApodiktumControllerLoader(loader.Module):
         self.lib = lib
         self._db = lib.db
         self._client = lib.client
-        self.inline = lib.allmodules.inline
+        self.inline = lib.inline
         self._libclassname = lib.__class__.__name__
 
     async def _refresh_lib(
@@ -362,7 +367,7 @@ class ApodiktumUtils(loader.Module):
         self.lib = lib
         self._db = lib.db
         self._client = lib.client
-        self.inline = lib.allmodules.inline
+        self.inline = lib.inline
         self._libclassname = lib.__class__.__name__
         self._lib_db = self._db.setdefault(self._libclassname, {})
         self._chats_db = self._lib_db.setdefault("chats", {})
@@ -1193,20 +1198,21 @@ class ApodiktumUtils(loader.Module):
         :param use_bot: Whether to use the inline bot or not
         :return: True if the user was muted, False if not<
         """
-        if user_id == chat_id:
-            return
         duration = int(math.ceil(duration))
+        user = await self._client.get_entity(user_id)
         try:
             if use_bot and await self.check_inlinebot(chat_id):
                 with contextlib.suppress(Exception):
-                    await self.inline.bot.restrict_chat_member(
-                        chat_id
-                        if str(chat_id).startswith("-100")
-                        else int(f"-100{chat_id}"),
-                        user_id,
-                        permissions=ChatPermissions(can_send_messages=False),
-                        until_date=timedelta(minutes=duration),
-                    )
+                    if isinstance(user, Channel):
+                        await self.inline.bot.restrict_chat_member(
+                            chat_id
+                            if str(chat_id).startswith("-100")
+                            else int(f"-100{chat_id}"),
+                            user_id,
+                            permissions=ChatPermissions(can_send_messages=False),
+                            until_date=timedelta(minutes=duration),
+                        )
+
                     return True
             await self._client.edit_permissions(
                 chat_id,
@@ -1225,6 +1231,58 @@ class ApodiktumUtils(loader.Module):
             )
             return False
 
+    async def unmute(
+        self,
+        chat_id: int,
+        user_id: int,
+        use_bot: bool = True,
+    ):
+        """
+        Unmutes a user in a chat
+        :param chat_id: The chat id to jnmute the user in
+        :param user_id: The user to unmute
+        :param use_bot: Whether to use the inline bot or not
+        :return: True if the user was muted, False if not<
+        """
+        duration = int(math.ceil(duration))
+        user = await self._client.get_entity(user_id)
+        try:
+            if use_bot and await self.check_inlinebot(chat_id):
+                with contextlib.suppress(Exception):
+                    if isinstance(user, Channel):
+                        await self.inline.bot.restrict_chat_member(
+                            chat_id
+                            if str(chat_id).startswith("-100")
+                            else int(f"-100{chat_id}"),
+                            user_id
+                            if str(user_id).startswith("-100")
+                            else int(f"-100{user_id}"),
+                            permissions=ChatPermissions(can_send_messages=False),
+                        )
+                        return True
+                    await self.inline.bot.restrict_chat_member(
+                        chat_id
+                        if str(chat_id).startswith("-100")
+                        else int(f"-100{chat_id}"),
+                        user_id,
+                        permissions=ChatPermissions(can_send_messages=False),
+                    )
+                    return True
+            await self._client.edit_permissions(
+                chat_id,
+                user_id,
+                send_messages=True,
+            )
+            return True
+        except Exception as exc:  # skipcq: PYL-W0703
+            self.utils.log(
+                logging.ERROR,
+                self._libclassname,
+                f"Unable to unmute user {user_id} in chat {chat_id}.\nError: {exc}",
+                debug_msg=True,
+            )
+            return False
+
     async def kick(
         self,
         chat_id: int,
@@ -1238,14 +1296,12 @@ class ApodiktumUtils(loader.Module):
         :param use_bot: Whether to use the inline bot or not
         :return: True if the user was banned, False if not
         """
-        if user_id == chat_id:
-            return
         user = await self._client.get_entity(user_id)
         try:
             if use_bot and await self.check_inlinebot(chat_id):
                 with contextlib.suppress(Exception):
                     if isinstance(user, Channel):
-                        return await self.inline.bot.ban_chat_sender_chat(
+                        await self.inline.bot.ban_chat_sender_chat(
                             chat_id
                             if str(chat_id).startswith("-100")
                             else int(f"-100{chat_id}"),
@@ -1253,14 +1309,16 @@ class ApodiktumUtils(loader.Module):
                             if str(user_id).startswith("-100")
                             else int(f"-100{user_id}"),
                         )
-                    return await self.inline.bot.kick_chat_member(
+                        return True
+                    await self.inline.bot.unban_chat_member(
                         chat_id
                         if str(chat_id).startswith("-100")
                         else int(f"-100{chat_id}"),
                         user_id,
-                        until_date=timedelta(minutes=1),
                     )
+                    return True
             await self._client.kick_participant(chat_id, user_id)
+            return True
         except Exception as exc:  # skipcq: PYL-W0703
             self.utils.log(
                 logging.ERROR,
@@ -1268,6 +1326,7 @@ class ApodiktumUtils(loader.Module):
                 f"Unable to kick user {user_id} in chat {chat_id}\nError: {exc}",
                 debug_msg=True,
             )
+            return False
 
     async def ban(
         self,
@@ -1284,15 +1343,13 @@ class ApodiktumUtils(loader.Module):
         :param use_bot: Whether to use the inline bot or not
         :return: True if the user was banned, False if not
         """
-        if user_id == chat_id:
-            return
         user = await self._client.get_entity(user_id)
         duration = int(math.ceil(duration))
         try:
             if use_bot and await self.check_inlinebot(chat_id):
                 with contextlib.suppress(Exception):
                     if isinstance(user, Channel):
-                        return await self.inline.bot.ban_chat_sender_chat(
+                        await self.inline.bot.ban_chat_sender_chat(
                             chat_id
                             if str(chat_id).startswith("-100")
                             else int(f"-100{chat_id}"),
@@ -1300,13 +1357,15 @@ class ApodiktumUtils(loader.Module):
                             if str(user_id).startswith("-100")
                             else int(f"-100{user_id}"),
                         )
-                    return await self.inline.bot.kick_chat_member(
+                        return True
+                    await self.inline.bot.kick_chat_member(
                         chat_id
                         if str(chat_id).startswith("-100")
                         else int(f"-100{chat_id}"),
                         user_id,
                         until_date=timedelta(minutes=duration),
                     )
+                    return True
             await self._client(
                 EditBannedRequest(
                     chat_id,
@@ -1314,6 +1373,7 @@ class ApodiktumUtils(loader.Module):
                     ChatBannedRights(timedelta(minutes=duration), view_messages=True),
                 )
             )
+            return True
         except Exception as exc:  # skipcq: PYL-W0703
             self.utils.log(
                 logging.ERROR,
@@ -1322,6 +1382,58 @@ class ApodiktumUtils(loader.Module):
                 f" {duration}min.\nError: {exc}",
                 debug_msg=True,
             )
+            return False
+
+    async def unban(
+        self,
+        chat_id: int,
+        user_id: int,
+        use_bot: bool = True,
+    ):
+        """
+        Unbans a user in a chat
+        :param chat_id: The chat id to delete the message in
+        :param user_id: The user to unban
+        :param use_bot: Whether to use the inline bot or not
+        :return: True if the user was unbanned, False if not
+        """
+        user = await self._client.get_entity(user_id)
+        try:
+            if use_bot and await self.check_inlinebot(chat_id):
+                with contextlib.suppress(Exception):
+                    if isinstance(user, Channel):
+                        await self.inline.bot.unban_chat_member(
+                            chat_id
+                            if str(chat_id).startswith("-100")
+                            else int(f"-100{chat_id}"),
+                            user_id
+                            if str(user_id).startswith("-100")
+                            else int(f"-100{user_id}"),
+                        )
+                        return True
+                    await self.inline.bot.unban_chat_member(
+                        chat_id
+                        if str(chat_id).startswith("-100")
+                        else int(f"-100{chat_id}"),
+                        user_id,
+                    )
+                    return True
+            await self._client(
+                EditBannedRequest(
+                    chat_id,
+                    user_id,
+                    ChatBannedRights(view_messages=False),
+                )
+            )
+            return True
+        except Exception as exc:  # skipcq: PYL-W0703
+            self.utils.log(
+                logging.ERROR,
+                self._libclassname,
+                f"Unable to unban user {user_id} in chat {chat_id}.\nError: {exc}",
+                debug_msg=True,
+            )
+            return False
 
     async def delete_message(
         self,
@@ -1354,11 +1466,12 @@ class ApodiktumUtils(loader.Module):
                         getattr(message, "id", None)
                         or getattr(message, "message_id", None),
                     )
-                    return
+                    return True
             await self._client.delete_messages(
                 chat_id,
                 getattr(message, "id", None) or getattr(message, "message_id", None),
             )
+            return True
         except Exception as exc:  # skipcq: PYL-W0703
             self.utils.log(
                 logging.ERROR,
@@ -1366,6 +1479,81 @@ class ApodiktumUtils(loader.Module):
                 f"Unable to delete {message.id} in {chat_id}!\nError: {exc}",
                 debug_msg=True,
             )
+            return False
+
+    async def asset_channel(
+        self,
+        title: str,
+        description: str,
+        *,
+        channel: Optional[bool] = False,
+        silent: Optional[bool] = False,
+        archive: Optional[bool] = False,
+        avatar: Optional[str] = "",
+        _folder: Optional[str] = "",
+    ) -> Tuple[Channel, bool]:
+        """
+        Create new channel (if needed) and return its entity
+        :param client: Telegram client to create channel by
+        :param title: Channel title
+        :param description: Description
+        :param channel: Whether to create a channel or not
+        :param silent: Automatically mute channel
+        :param archive: Automatically archive channel
+        :param avatar: Url to an avatar to set as pfp of created peer
+        :param _folder: Do not use it, or things will go wrong
+        :returns: Peer and bool: is channel new or pre-existent
+        """
+        megagroup = not channel
+        async for d in self._client.iter_dialogs():
+            if d.title == title:
+                return d.entity, False
+
+        peer = (
+            await self._client(
+                CreateChannelRequest(
+                    title,
+                    description,
+                    megagroup=megagroup,
+                )
+            )
+        ).chats[0]
+
+        if silent:
+            await utils.dnd(self._client, peer, archive)
+        elif archive:
+            await self._client.edit_folder(peer, 1)
+
+        if avatar:
+            await utils.set_avatar(self._client, peer, avatar)
+
+        if _folder:
+            if _folder != "hikka":
+                raise NotImplementedError
+
+            folders = await self._client(GetDialogFiltersRequest())
+
+            try:
+                folder = next(folder for folder in folders if folder.title == "hikka")
+            except Exception:
+                return
+
+            if any(
+                peer.id == getattr(folder_peer, "channel_id", None)
+                for folder_peer in folder.include_peers
+            ):
+                return
+
+            folder.include_peers += [await self._client.get_input_entity(peer)]
+
+            await self._client(
+                UpdateDialogFilterRequest(
+                    folder.id,
+                    folder,
+                )
+            )
+
+        return peer, True
 
 
 class ApodiktumUtilsBeta(loader.Module):
@@ -1387,7 +1575,7 @@ class ApodiktumUtilsBeta(loader.Module):
         self.lib = lib
         self._db = lib.db
         self._client = lib.client
-        self.inline = lib.allmodules.inline
+        self.inline = lib.inline
         self._libclassname = self.lib.__class__.__name__
         self._lib_db = self._db.setdefault(self._libclassname, {})
         self._chats_db = self._lib_db.setdefault("chats", {})
@@ -1519,29 +1707,30 @@ class ApodiktumInternal(loader.Module):
         with contextlib.suppress(Exception):
             if url is not None and utils.check_url(url):
                 try:
-                    if self._db["LoaderMod"] and not self._db["LoaderMod"]["token"]:
-                        self._db["LoaderMod"].setdefault(
+                    if not self._db.get("LoaderMod", "token"):
+                        self._db.set(
+                            "LoaderMod",
                             "token",
                             (
-                                await self._client.inline_query(
-                                    "@hikkamods_bot", "#get_hikka_token"
-                                )
-                            )[0].title,
+                                await (
+                                    await self._client.get_messages(
+                                        "@hikka_ub", ids=[10]
+                                    )
+                                )[0].click(0)
+                            ).message,
                         )
 
                     res = await utils.run_sync(
                         requests.post,
                         "https://heta.hikariatama.ru/stats",
                         data={"url": url},
-                        headers={"X-Hikka-Token": self._db["LoaderMod"]["token"]},
+                        headers={"X-Hikka-Token": self._db.get("LoaderMod", "token")},
                     )
                     if res.status_code == 403:
                         if retry:
                             return
-
-                        if self._db["LoaderMod"] and not self._db["LoaderMod"]["token"]:
-                            self._db["LoaderMod"]["token"] = None
-                        return await self._send_stats_handler(url, retry=True)
+                        self._db.set("LoaderMod", "token", None)
+                        return await self.__send_stats_handler(url, retry=True)
                     if filename := (os.path.basename(urlparse(url).path)).split(".")[0]:
                         self.utils.log(
                             logging.DEBUG,

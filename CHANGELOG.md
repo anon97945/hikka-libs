@@ -1,5 +1,14 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.0.9
+### 📦 apodiktum_library:
+#### General:
+- reworked stats sender
+#### Utils:
+- added | unmute
+- added | unban
+- added | asset_channel
+
 ## 🆕 Version 2.0.8
 ### 📦 apodiktum_library:
 #### General:
