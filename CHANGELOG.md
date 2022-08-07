@@ -1,5 +1,10 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.0.11
+### 📦 apodiktum_library:
+#### Utils:
+- change | is_member now returns perms if true
+
 ## 🆕 Version 2.0.10
 ### 📦 apodiktum_library:
 #### Utils:
