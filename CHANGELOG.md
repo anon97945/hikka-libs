@@ -1,5 +1,11 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.0.12
+### 📦 apodiktum_library:
+#### Utils:
+- add | get_perms to get cached perms
+- change | delete_message now supports deltimer
+
 ## 🆕 Version 2.0.11
 ### 📦 apodiktum_library:
 #### Utils:

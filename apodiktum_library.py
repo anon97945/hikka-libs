@@ -1,4 +1,4 @@
-__version__ = (2, 0, 62)
+__version__ = (2, 0, 71)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -33,6 +33,7 @@ import logging
 import math
 import os
 import re
+import time
 from datetime import datetime, timedelta
 from typing import IO, Any, Optional, Tuple, Union
 from urllib.parse import urlparse
@@ -207,8 +208,9 @@ class ApodiktumLib(loader.Library):
         self.__internal._is_apodiktum_module()
 
     async def on_lib_update(self, _: loader.Library):
-        self._acl_task.cancel()
-        self._ss_task.cancel()
+        with contextlib.suppress(Exception):
+            self._acl_task.cancel()
+            self._ss_task.cancel()
         self.utils.log(
             logging.DEBUG,
             self.__class__.__name__,
@@ -372,9 +374,10 @@ class ApodiktumUtils(loader.Module):
         self._libclassname = lib.__class__.__name__
         self._lib_db = self._db.setdefault(self._libclassname, {})
         self._chats_db = self._lib_db.setdefault("chats", {})
+        self._perms_cache = {}
         self.log(
             logging.DEBUG,
-            lib.__class__.__name__,
+            self._libclassname,
             "class ApodiktumUtils is being initiated!",
             debug_msg=True,
         )
@@ -467,18 +470,93 @@ class ApodiktumUtils(loader.Module):
         self,
         chat_id: int,
         user_id: int,
+        exp_time: Optional[int] = 5,
+        force_refresh: Optional[bool] = False,
+        clean_cache: Optional[bool] = False,
     ) -> bool:
         """
         Checks if a user is a member of a chat
         :param chat_id: Chat ID
         :param user_id: User ID
+        :param exp_time: The time to refresh the cache
+        :param force_refresh: Whether to force a refresh of the cache
+        :param clean_cache: Whether to clean the complete cache
         :return: perms if user is a member of the chat, False otherwise
         """
+        perms = await self.get_perms(
+            chat_id,
+            user_id,
+            exp_time=exp_time,
+            force_refresh=force_refresh,
+            clean_cache=clean_cache,
+        )
+        return None if not perms or perms.is_banned else perms
+
+    async def get_perms(
+        self,
+        chat_id: int,
+        user_id: int,
+        exp_time: Optional[int] = 300,
+        force_refresh: Optional[bool] = False,
+        clean_cache: Optional[bool] = True,
+    ):
+        """
+        Gets the permissions of a user in a chat and cache it
+        :param chat_id: Chat ID
+        :param user_id: User ID
+        :param exp_time: Expiration time of the cache
+        :param force_refresh: Whether to force refresh the cache
+        :param clean_cache: Whether to clean the complete cache
+        :return: The permissions of the user in the chat
+        """
+        if clean_cache:
+            await self.clean_member_cache(chat_id)
+        if (
+            not force_refresh
+            and self._perms_cache.get(chat_id)
+            and user_id in self._perms_cache.get(chat_id)
+            and list(self._perms_cache[chat_id].get(user_id).values())[0] > time.time()
+        ):
+            perms = list(self._perms_cache[chat_id].get(user_id).keys())[0]
+            self.log(
+                logging.DEBUG,
+                self._libclassname,
+                "Permissions cached: `True`",
+                debug_msg=True,
+            )
+            return perms
         try:
             perms = await self._client.get_permissions(chat_id, user_id)
-            return False if perms.is_banned else perms
-        except UserNotParticipantError:
-            return False
+            self._perms_cache[chat_id] = {user_id: {perms: time.time() + exp_time}}
+            self.log(
+                logging.DEBUG,
+                self._libclassname,
+                "Permissions cached: `False`",
+                debug_msg=True,
+            )
+            return perms
+        except UserNotParticipantError as exc:
+            exp_time = 10
+            self._perms_cache[chat_id] = {user_id: {None: time.time() + exp_time}}
+            self.log(
+                logging.DEBUG,
+                self._libclassname,
+                f"Unable to get permissions. Cached `None`\nError: {exc}",
+                debug_msg=True,
+            )
+            return None
+
+    async def clean_member_cache(self, chat_id: int):
+        """
+        Cleans the member cache of a chat
+        :param chat_id: Chat ID
+        :return: None
+        """
+        if self._perms_cache.get(chat_id):
+            for key, value in list(self._perms_cache[chat_id].items()):
+                for _, exp_time in list(value.items()):
+                    if exp_time < time.time():
+                        self._perms_cache[chat_id].pop(key)
 
     @staticmethod
     async def get_buttons(
@@ -1223,7 +1301,7 @@ class ApodiktumUtils(loader.Module):
         self,
         chat_id: int,
         user_id: int,
-        duration: Optional[Union[int, float]] = 0,
+        duration: Optional[int] = 0,
         use_bot: Optional[bool] = True,
     ) -> bool:
         """
@@ -1368,7 +1446,7 @@ class ApodiktumUtils(loader.Module):
         self,
         chat_id: int,
         user_id: int,
-        duration: Optional[Union[int, float]] = 0,
+        duration: Optional[int] = 0,
         use_bot: Optional[bool] = True,
     ) -> bool:
         """
@@ -1468,6 +1546,7 @@ class ApodiktumUtils(loader.Module):
     async def delete_message(
         self,
         message: Message,
+        deltimer: Optional[int] = 0,
         use_bot: Optional[bool] = True,
     ) -> bool:
         """
@@ -1482,6 +1561,8 @@ class ApodiktumUtils(loader.Module):
             message_id = getattr(message, "id", None) or getattr(
                 message, "message_id", None
             )
+            if deltimer:
+                await asyncio.sleep(deltimer)
             if (
                 use_bot
                 and await self.check_inlinebot(chat_id)
@@ -1612,7 +1693,7 @@ class ApodiktumUtilsBeta(loader.Module):
         self._chats_db = self._lib_db.setdefault("chats", {})
         self.utils.log(
             logging.DEBUG,
-            lib.__class__.__name__,
+            self._libclassname,
             "Congratulations! You have access to the ApodiktumUtilsBeta!",
         )
 
