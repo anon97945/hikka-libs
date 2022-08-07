@@ -1,4 +1,4 @@
-__version__ = (2, 0, 59)
+__version__ = (2, 0, 62)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -34,7 +34,7 @@ import math
 import os
 import re
 from datetime import datetime, timedelta
-from typing import Any, Optional, Tuple, Union
+from typing import IO, Any, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 import aiohttp
@@ -472,11 +472,11 @@ class ApodiktumUtils(loader.Module):
         Checks if a user is a member of a chat
         :param chat_id: Chat ID
         :param user_id: User ID
-        :return: True if user is a member of the chat, False otherwise
+        :return: perms if user is a member of the chat, False otherwise
         """
         try:
             perms = await self._client.get_permissions(chat_id, user_id)
-            return not perms.is_banned
+            return False if perms.is_banned else perms
         except UserNotParticipantError:
             return False
 
@@ -745,7 +745,7 @@ class ApodiktumUtils(loader.Module):
             return False
 
     @staticmethod
-    def validate_datetime(s: Any, dt_format: str = "%Y-%m-%d") -> bool:
+    def validate_datetime(s: Any, dt_format: Optional[str] = "%Y-%m-%d") -> bool:
         """
         Checks if the string represents a date
         :param s: String to check
@@ -895,7 +895,7 @@ class ApodiktumUtils(loader.Module):
         return urls
 
     @staticmethod
-    async def get_file_from_url(url):
+    async def get_file_from_url(url: str) -> IO[bytes]:
         """
         Get file from url
         :param url: url
@@ -916,7 +916,7 @@ class ApodiktumUtils(loader.Module):
         return list(dict.fromkeys(s))
 
     @staticmethod
-    def convert_time(t: Any) -> int:
+    def convert_time(t: Union[str, int]) -> int:
         """
         Tries to export time from text
         :param t: Xs/Xm/Xh/Xd/Xw/Xy
@@ -950,7 +950,7 @@ class ApodiktumUtils(loader.Module):
     @staticmethod
     def tdstring_to_seconds(
         tdstr: Any,
-        rev_order: bool = False,
+        rev_order: Optional[bool] = False,
     ) -> int:
         """
         Convert timedelta string to seconds
@@ -980,7 +980,7 @@ class ApodiktumUtils(loader.Module):
             return None
 
     @staticmethod
-    def time_formatter(seconds: int, short: bool = False) -> str:
+    def time_formatter(seconds: int, short: Optional[bool] = False) -> str:
         """
         Inputs time in seconds, to get beautified time,
         as string
@@ -1021,7 +1021,7 @@ class ApodiktumUtils(loader.Module):
         return result[:-2]
 
     @staticmethod
-    def get_ids_from_tglink(link) -> str:
+    def get_ids_from_tglink(link: str) -> str:
         """
         Get chat ID and message ID from telegram link
         :param link: telegram link
@@ -1039,7 +1039,8 @@ class ApodiktumUtils(loader.Module):
             chat_id = int(chat_id)
         return chat_id, msg_id
 
-    def is_emoji(self, text: str) -> str:
+    @staticmethod
+    def is_emoji(text: str) -> str:
         """
         Check if text is only emoji
         :param text: text
@@ -1047,7 +1048,8 @@ class ApodiktumUtils(loader.Module):
         """
         return not emoji.replace_emoji(text, replace="") if text else False
 
-    def rem_emoji(self, text: str) -> str:
+    @staticmethod
+    def rem_emoji(text: str) -> str:
         """
         Remove emoji from text
         :param text: text
@@ -1055,7 +1057,8 @@ class ApodiktumUtils(loader.Module):
         """
         return emoji.replace_emoji(text, replace="")
 
-    def distinct_emoji_list(self, text: str) -> list:
+    @staticmethod
+    def distinct_emoji_list(text: str) -> list:
         """
         Get distinct list of emoji from text
         :param text: text
@@ -1063,7 +1066,8 @@ class ApodiktumUtils(loader.Module):
         """
         return emoji.distinct_emoji_list(text)
 
-    def emoji_list(self, text: str) -> dict:
+    @staticmethod
+    def emoji_list(text: str) -> dict:
         """
         Get dict of emoji from text with index positions
         :param text: text
@@ -1090,7 +1094,7 @@ class ApodiktumUtils(loader.Module):
         return html.escape(text)
 
     @staticmethod
-    def humanbytes(num: int, decimal: int = 2) -> str:
+    def humanbytes(num: int, decimal: Optional[int] = 2) -> str:
         """
         Formats a number to a human readable string
         :param num: Bytes int to format
@@ -1103,7 +1107,7 @@ class ApodiktumUtils(loader.Module):
             num /= 1024.0
         return f"{num:.{decimal}f} Yi{suffix}"
 
-    def get_uptime(self, short: bool = True) -> str:
+    def get_uptime(self, short: Optional[bool] = True) -> str:
         """
         Get uptime of bot
         :param short: if True, will return short time format
@@ -1111,7 +1115,7 @@ class ApodiktumUtils(loader.Module):
         """
         return self.time_formatter(utils.uptime(), short)
 
-    async def get_first_msg(self, message: Message):
+    async def get_first_msg(self, message: Message) -> Message:
         """
         Get the first message of the message thread
         :param message: message
@@ -1127,9 +1131,9 @@ class ApodiktumUtils(loader.Module):
     async def check_inlinebot(
         self,
         chat_id: int,
-        invite_bot: bool = True,
-        promote_bot: bool = True,
-    ):
+        invite_bot: Optional[bool] = True,
+        promote_bot: Optional[bool] = True,
+    ) -> bool:
         """
         Check if the inline bot is in the chat and has the correct permissions
         :param chat_id: Chat ID
@@ -1163,10 +1167,9 @@ class ApodiktumUtils(loader.Module):
         :return: True if the bot was invited, False otherwise
         """
         try:
-            await self._client(
+            return await self._client(
                 InviteToChannelRequest(chat_id, [self.inline.bot_username])
             )
-            return True
         except Exception as exc:  # skipcq: PYL-W0703
             self.utils.log(
                 logging.DEBUG,
@@ -1188,10 +1191,14 @@ class ApodiktumUtils(loader.Module):
         """
         try:
             bot_perms = await self._client.get_permissions(chat_id, self.inline.bot_id)
-            if not (
-                bot_perms.is_admin and bot_perms.ban_users and bot_perms.delete_messages
-            ):
-                await self._client(
+            return (
+                True
+                if (
+                    bot_perms.is_admin
+                    and bot_perms.ban_users
+                    and bot_perms.delete_messages
+                )
+                else await self._client(
                     EditAdminRequest(
                         channel=chat_id,
                         user_id=self.inline.bot_username,
@@ -1201,7 +1208,8 @@ class ApodiktumUtils(loader.Module):
                         rank="Bot",
                     )
                 )
-            return True
+            )
+
         except Exception as exc:  # skipcq: PYL-W0703
             self.utils.log(
                 logging.DEBUG,
@@ -1215,9 +1223,9 @@ class ApodiktumUtils(loader.Module):
         self,
         chat_id: int,
         user_id: int,
-        duration: Union[int, float] = 0,
-        use_bot: bool = True,
-    ):
+        duration: Optional[Union[int, float]] = 0,
+        use_bot: Optional[bool] = True,
+    ) -> bool:
         """
         Mutes a user in a chat
         :param chat_id: The chat id to mute the user in
@@ -1232,7 +1240,7 @@ class ApodiktumUtils(loader.Module):
             if use_bot and await self.check_inlinebot(chat_id):
                 with contextlib.suppress(Exception):
                     if isinstance(user, Channel):
-                        await self.inline.bot.restrict_chat_member(
+                        return await self.inline.bot.restrict_chat_member(
                             chat_id
                             if str(chat_id).startswith("-100")
                             else int(f"-100{chat_id}"),
@@ -1242,8 +1250,7 @@ class ApodiktumUtils(loader.Module):
                             permissions=ChatPermissions(can_send_messages=False),
                             until_date=timedelta(minutes=duration),
                         )
-                        return True
-                    await self.inline.bot.restrict_chat_member(
+                    return await self.inline.bot.restrict_chat_member(
                         chat_id
                         if str(chat_id).startswith("-100")
                         else int(f"-100{chat_id}"),
@@ -1251,17 +1258,15 @@ class ApodiktumUtils(loader.Module):
                         permissions=ChatPermissions(can_send_messages=False),
                         until_date=timedelta(minutes=duration),
                     )
-                    return True
-            await self._client.edit_permissions(
+            return await self._client.edit_permissions(
                 chat_id,
                 user_id,
                 timedelta(minutes=duration),
                 send_messages=False,
             )
-            return True
         except Exception as exc:  # skipcq: PYL-W0703
             self.utils.log(
-                logging.ERROR,
+                logging.DEBUG,
                 self._libclassname,
                 f"Unable to mute user {user_id} in chat {chat_id} for duration"
                 f" {duration}min\nError: {exc}",
@@ -1273,8 +1278,8 @@ class ApodiktumUtils(loader.Module):
         self,
         chat_id: int,
         user_id: int,
-        use_bot: bool = True,
-    ):
+        use_bot: Optional[bool] = True,
+    ) -> bool:
         """
         Unmutes a user in a chat
         :param chat_id: The chat id to unmute the user in
@@ -1287,7 +1292,7 @@ class ApodiktumUtils(loader.Module):
             if use_bot and await self.check_inlinebot(chat_id):
                 with contextlib.suppress(Exception):
                     if isinstance(user, Channel):
-                        await self.inline.bot.restrict_chat_member(
+                        return await self.inline.bot.restrict_chat_member(
                             chat_id
                             if str(chat_id).startswith("-100")
                             else int(f"-100{chat_id}"),
@@ -1296,24 +1301,21 @@ class ApodiktumUtils(loader.Module):
                             else int(f"-100{user_id}"),
                             permissions=ChatPermissions(can_send_messages=True),
                         )
-                        return True
-                    await self.inline.bot.restrict_chat_member(
+                    return await self.inline.bot.restrict_chat_member(
                         chat_id
                         if str(chat_id).startswith("-100")
                         else int(f"-100{chat_id}"),
                         user_id,
                         permissions=ChatPermissions(can_send_messages=True),
                     )
-                    return True
-            await self._client.edit_permissions(
+            return await self._client.edit_permissions(
                 chat_id,
                 user_id,
                 send_messages=True,
             )
-            return True
         except Exception as exc:  # skipcq: PYL-W0703
             self.utils.log(
-                logging.ERROR,
+                logging.DEBUG,
                 self._libclassname,
                 f"Unable to unmute user {user_id} in chat {chat_id}.\nError: {exc}",
                 debug_msg=True,
@@ -1324,8 +1326,8 @@ class ApodiktumUtils(loader.Module):
         self,
         chat_id: int,
         user_id: int,
-        use_bot: bool = True,
-    ):
+        use_bot: Optional[bool] = True,
+    ) -> bool:
         """
         Kicks a user in a chat
         :param chat_id: The chat id to delete the message in
@@ -1338,7 +1340,7 @@ class ApodiktumUtils(loader.Module):
             if use_bot and await self.check_inlinebot(chat_id):
                 with contextlib.suppress(Exception):
                     if isinstance(user, Channel):
-                        await self.inline.bot.ban_chat_sender_chat(
+                        return await self.inline.bot.ban_chat_sender_chat(
                             chat_id
                             if str(chat_id).startswith("-100")
                             else int(f"-100{chat_id}"),
@@ -1346,19 +1348,16 @@ class ApodiktumUtils(loader.Module):
                             if str(user_id).startswith("-100")
                             else int(f"-100{user_id}"),
                         )
-                        return True
-                    await self.inline.bot.unban_chat_member(
+                    return await self.inline.bot.unban_chat_member(
                         chat_id
                         if str(chat_id).startswith("-100")
                         else int(f"-100{chat_id}"),
                         user_id,
                     )
-                    return True
-            await self._client.kick_participant(chat_id, user_id)
-            return True
+            return await self._client.kick_participant(chat_id, user_id)
         except Exception as exc:  # skipcq: PYL-W0703
             self.utils.log(
-                logging.ERROR,
+                logging.DEBUG,
                 self._libclassname,
                 f"Unable to kick user {user_id} in chat {chat_id}\nError: {exc}",
                 debug_msg=True,
@@ -1369,9 +1368,9 @@ class ApodiktumUtils(loader.Module):
         self,
         chat_id: int,
         user_id: int,
-        duration: Union[int, float] = 0,
-        use_bot: bool = True,
-    ):
+        duration: Optional[Union[int, float]] = 0,
+        use_bot: Optional[bool] = True,
+    ) -> bool:
         """
         Bans a user in a chat, optionally for a certain time
         :param chat_id: The chat id to delete the message in
@@ -1386,7 +1385,7 @@ class ApodiktumUtils(loader.Module):
             if use_bot and await self.check_inlinebot(chat_id):
                 with contextlib.suppress(Exception):
                     if isinstance(user, Channel):
-                        await self.inline.bot.ban_chat_sender_chat(
+                        return await self.inline.bot.ban_chat_sender_chat(
                             chat_id
                             if str(chat_id).startswith("-100")
                             else int(f"-100{chat_id}"),
@@ -1394,26 +1393,23 @@ class ApodiktumUtils(loader.Module):
                             if str(user_id).startswith("-100")
                             else int(f"-100{user_id}"),
                         )
-                        return True
-                    await self.inline.bot.kick_chat_member(
+                    return await self.inline.bot.kick_chat_member(
                         chat_id
                         if str(chat_id).startswith("-100")
                         else int(f"-100{chat_id}"),
                         user_id,
                         until_date=timedelta(minutes=duration),
                     )
-                    return True
-            await self._client(
+            return await self._client(
                 EditBannedRequest(
                     chat_id,
                     user_id,
                     ChatBannedRights(timedelta(minutes=duration), view_messages=True),
                 )
             )
-            return True
         except Exception as exc:  # skipcq: PYL-W0703
             self.utils.log(
-                logging.ERROR,
+                logging.DEBUG,
                 self._libclassname,
                 f"Unable to ban user {user_id} in chat {chat_id} for duration:"
                 f" {duration}min.\nError: {exc}",
@@ -1425,8 +1421,8 @@ class ApodiktumUtils(loader.Module):
         self,
         chat_id: int,
         user_id: int,
-        use_bot: bool = True,
-    ):
+        use_bot: Optional[bool] = True,
+    ) -> bool:
         """
         Unbans a user in a chat
         :param chat_id: The chat id to delete the message in
@@ -1439,7 +1435,7 @@ class ApodiktumUtils(loader.Module):
             if use_bot and await self.check_inlinebot(chat_id):
                 with contextlib.suppress(Exception):
                     if isinstance(user, Channel):
-                        await self.inline.bot.unban_chat_member(
+                        return await self.inline.bot.unban_chat_member(
                             chat_id
                             if str(chat_id).startswith("-100")
                             else int(f"-100{chat_id}"),
@@ -1447,25 +1443,22 @@ class ApodiktumUtils(loader.Module):
                             if str(user_id).startswith("-100")
                             else int(f"-100{user_id}"),
                         )
-                        return True
-                    await self.inline.bot.unban_chat_member(
+                    return await self.inline.bot.unban_chat_member(
                         chat_id
                         if str(chat_id).startswith("-100")
                         else int(f"-100{chat_id}"),
                         user_id,
                     )
-                    return True
-            await self._client(
+            return await self._client(
                 EditBannedRequest(
                     chat_id,
                     user_id,
                     ChatBannedRights(view_messages=False),
                 )
             )
-            return True
         except Exception as exc:  # skipcq: PYL-W0703
             self.utils.log(
-                logging.ERROR,
+                logging.DEBUG,
                 self._libclassname,
                 f"Unable to unban user {user_id} in chat {chat_id}.\nError: {exc}",
                 debug_msg=True,
@@ -1474,9 +1467,9 @@ class ApodiktumUtils(loader.Module):
 
     async def delete_message(
         self,
-        message: Message = None,
-        use_bot: bool = True,
-    ):
+        message: Message,
+        use_bot: Optional[bool] = True,
+    ) -> bool:
         """
         Deletes a message in a chat
         :param message: The message to delete
@@ -1500,21 +1493,19 @@ class ApodiktumUtils(loader.Module):
                     ChatNotFound,
                     MessageToDeleteNotFound,
                 ):
-                    await self.inline.bot.delete_message(
+                    return await self.inline.bot.delete_message(
                         chat_id
                         if str(chat_id).startswith("-100")
                         else int(f"-100{chat_id}"),
                         message_id,
                     )
-                    return True
-            await self._client.delete_messages(
+            return await self._client.delete_messages(
                 chat_id,
                 message_id,
             )
-            return True
         except Exception as exc:  # skipcq: PYL-W0703
             self.utils.log(
-                logging.ERROR,
+                logging.DEBUG,
                 self._libclassname,
                 f"Unable to delete {message_id} in {chat_id}!\nError: {exc}",
                 debug_msg=True,
@@ -1575,7 +1566,7 @@ class ApodiktumUtils(loader.Module):
 
             try:
                 folder = next(folder for folder in folders if folder.title == "hikka")
-            except Exception:
+            except Exception:  # skipcq: PYL-W0703
                 return
 
             if any(
@@ -1718,6 +1709,7 @@ class ApodiktumInternal(loader.Module):
         if self._db.get(main.__name__, "stats", True):
             await asyncio.sleep(8)
             urls = [
+                "https://raw.githubusercontent.com/anon97945/hikka-mods/master/apodiktum_library.py",
                 "https://raw.githubusercontent.com/anon97945/hikka-mods/master/total_users.py",
             ]
             if not getattr(self, "apodiktum_module", False):
