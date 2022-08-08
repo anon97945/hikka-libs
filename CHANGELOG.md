@@ -1,30 +1,35 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.0.13
+### 📦 apodiktum_library:
+#### Utils:
+- add | `get_fullchannel` to get cached `GetFullChannelRequest`
+
 ## 🆕 Version 2.0.12
 ### 📦 apodiktum_library:
 #### Utils:
-- add | get_perms to get cached perms
-- change | delete_message now supports deltimer
+- add | `get_perms` to get cached `get_permissions`
+- change | `delete_message` now supports `deltimer`
 
 ## 🆕 Version 2.0.11
 ### 📦 apodiktum_library:
 #### Utils:
-- change | is_member now returns perms if true
+- change | `is_member` now returns `perms` if `True`
 
 ## 🆕 Version 2.0.10
 ### 📦 apodiktum_library:
 #### Utils:
-- add | get_file_from_url
-- add | get_first_msg
+- add | `get_file_from_url`
+- add | `get_first_msg`
 
 ## 🆕 Version 2.0.9
 ### 📦 apodiktum_library:
 #### General:
 - reworked stats sender
 #### Utils:
-- added | unmute
-- added | unban
-- added | asset_channel
+- added | `unmute`
+- added | `unban`
+- added | `asset_channel`
 
 ## 🆕 Version 2.0.8
 ### 📦 apodiktum_library:
@@ -34,10 +39,10 @@
 ## 🆕 Version 2.0.7
 ### 📦 apodiktum_library:
 #### Utils:
-- changed | check_inlinebot
-- changed | invite_bot
-- changed | promote_bot
-- fixed | is_member
+- changed | `check_inlinebot`
+- changed | `invite_bot`
+- changed | `promote_bot`
+- fixed | `is_member`
 
 ## 🆕 Version 2.0.6
 ### 📦 apodiktum_library:
@@ -57,14 +62,14 @@
 ## 🆕 Version 2.0.3
 ### 📦 apodiktum_library:
 #### Utils:
-- added | check_inlinebot
-- added | promote_bot
-- added | mute
-- added | kick
-- added | ban
-- added | delete_message
-- fixed | get_tag
-- fixed | validate_boolean
+- added | `check_inlinebot`
+- added | `promote_bot`
+- added | `mute`
+- added | `kick`
+- added | `ban`
+- added | `delete_message`
+- fixed | `get_tag`
+- fixed | `validate_boolean`
 
 ## 🆕 Version 2.0.2
 ### 📦 apodiktum_library:
