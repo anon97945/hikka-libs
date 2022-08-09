@@ -1,4 +1,4 @@
-__version__ = (2, 0, 86)
+__version__ = (2, 0, 88)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -153,6 +153,7 @@ class ApodiktumLib(loader.Library):
             f" v{__version__[0]}.{__version__[1]}.{__version__[2]} started for"
             f" {self.client} | {self.client.tg_id}"
         )
+        self._lib_set("version", __version__)
         self.utils = ApodiktumUtils(self)
         self.__controllerloader = ApodiktumControllerLoader(self)
         self.__internal = ApodiktumInternal(self)

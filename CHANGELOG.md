@@ -1,5 +1,10 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.0.14
+### 📦 apodiktum_library:
+#### General:
+- set `version` of the current loaded version into db
+
 ## 🆕 Version 2.0.13
 ### 📦 apodiktum_library:
 #### Utils:
