@@ -1,4 +1,4 @@
-__version__ = (2, 0, 88)
+__version__ = (2, 0, 92)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -115,9 +115,6 @@ class ApodiktumLib(loader.Library):
     }
 
     def __init__(self):
-        loader.Library.__init__(self)
-
-    async def init(self):
         self.config = loader.LibraryConfig(
             loader.ConfigValue(
                 "auto_migrate",
@@ -138,6 +135,8 @@ class ApodiktumLib(loader.Library):
                 validator=loader.validators.Boolean(),
             ),
         )
+
+    async def init(self):
         if self.config["log_channel"]:
             logging.getLogger(self.__class__.__name__).info(
                 "Apodiktum Library"

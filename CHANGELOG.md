@@ -1,5 +1,10 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.0.15
+### 📦 apodiktum_library:
+#### General:
+- fix config defaulting after update
+
 ## 🆕 Version 2.0.14
 ### 📦 apodiktum_library:
 #### General:
