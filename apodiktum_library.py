@@ -1,4 +1,4 @@
-__version__ = (2, 0, 93)
+__version__ = (2, 0, 98)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -33,7 +33,6 @@ import logging
 import math
 import os
 import re
-import time
 from datetime import datetime, timedelta
 from typing import IO, Any, Optional, Tuple, Union
 from urllib.parse import urlparse
@@ -443,7 +442,8 @@ class ApodiktumUtils(loader.Module):
         level: int,
         name: str,
         text: str,
-        debug_msg: bool = False,
+        debug_msg: Optional[bool] = False,
+        exc_info: Optional[Exception] = False,
     ):
         """
         Logs a message to the console
@@ -457,16 +457,21 @@ class ApodiktumUtils(loader.Module):
         if (
             not debug_msg and self.lib.config["log_channel"] and level == logging.DEBUG
         ) or (debug_msg and self.lib.config["log_debug"] and level == logging.DEBUG):
-            return apo_logger.info(text)
-        if level == logging.CRITICAL:
-            return apo_logger.critical(text)
+            return apo_logger.info(text, exc_info=exc_info)
+        if level in [logging.CRITICAL, logging.FATAL]:
+            return apo_logger.critical(text, exc_info=exc_info)
         if level == logging.ERROR:
-            return apo_logger.error(text)
+            return apo_logger.error(text, exc_info=exc_info)
         if level == logging.WARNING:
-            return apo_logger.warning(text)
+            return apo_logger.warning(text, exc_info=exc_info)
         if level == logging.INFO:
-            return apo_logger.info(text)
-        return apo_logger.debug(text) if level == logging.DEBUG else None
+            return apo_logger.info(text, exc_info=exc_info)
+
+        return (
+            apo_logger.debug(text, exc_info=exc_info)
+            if level == logging.DEBUG
+            else None
+        )
 
     async def is_member(
         self,
@@ -483,13 +488,16 @@ class ApodiktumUtils(loader.Module):
         :param force: Whether to force a refresh of the cache
         :return: perms if user is a member of the chat, None otherwise
         """
-        perms = self._client.get_perms_cached(
-            entity,
-            user,
-            exp=exp,
-            force=force,
-        )
-        return None if not perms or perms.is_banned else perms
+        try:
+            perms = await self._client.get_perms_cached(
+                entity,
+                user,
+                exp=exp,
+                force=force,
+            )
+            return None if perms.is_banned else perms
+        except UserNotParticipantError as exc:
+            return None
 
     async def is_linkedchannel(
         self,
@@ -1100,6 +1108,15 @@ class ApodiktumUtils(loader.Module):
         :return: dict of emoji with index positions
         """
         return emoji.emoji_list(text)
+
+    @staticmethod
+    def rem_customemoji_html(text: str) -> str:
+        """
+        Removes custom emoji HTML tags from text
+        :param text: text
+        :return: text
+        """
+        return re.sub(r'(<emoji document_id="\d+">|<\/emoji>)', "", text)
 
     @staticmethod
     def unescape_html(text: str) -> str:

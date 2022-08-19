@@ -1,5 +1,10 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.0.17
+### 📦 apodiktum_library:
+#### Utils:
+- add | `rem_customemoji_html` to remove `<emoji document_id="xyz"></emoji>`
+
 ## 🆕 Version 2.0.16
 ### 📦 apodiktum_library:
 #### General:
