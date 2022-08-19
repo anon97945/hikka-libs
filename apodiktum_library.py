@@ -1,4 +1,4 @@
-__version__ = (2, 0, 92)
+__version__ = (2, 0, 93)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -18,7 +18,7 @@ __version__ = (2, 0, 92)
 # meta banner: https://t.me/file_dumbster/11
 # meta pic: https://t.me/file_dumbster/13
 
-# scope: hikka_min 1.3.0
+# scope: hikka_min 1.3.3
 # requires: emoji alphabet_detector
 
 import ast
@@ -50,6 +50,7 @@ from aiogram.utils.exceptions import (
     MessageToDeleteNotFound,
 )
 from telethon.errors import UserNotParticipantError
+from telethon.hints import EntityLike
 from telethon.tl.functions.channels import (
     CreateChannelRequest,
     EditAdminRequest,
@@ -469,216 +470,61 @@ class ApodiktumUtils(loader.Module):
 
     async def is_member(
         self,
-        chat_id: int,
-        user_id: int,
-        exp_time: Optional[int] = 5,
-        force_refresh: Optional[bool] = False,
-        clean_cache: Optional[bool] = True,
+        entity: EntityLike,
+        user: Optional[EntityLike] = None,
+        exp: Optional[int] = 5,
+        force: Optional[bool] = False,
     ) -> bool:
         """
         Checks if a user is a member of a chat
-        :param chat_id: Chat ID
-        :param user_id: User ID
-        :param exp_time: The time to refresh the cache
-        :param force_refresh: Whether to force a refresh of the cache
-        :param clean_cache: Whether to clean the cache
-        :return: perms if user is a member of the chat, False otherwise
+        :param entity: Chat ID or Chat Entity
+        :param user: User ID or User Entity
+        :param exp: The max time of cached results in seconds
+        :param force: Whether to force a refresh of the cache
+        :return: perms if user is a member of the chat, None otherwise
         """
-        perms = await self.get_perms(
-            chat_id,
-            user_id,
-            exp_time=exp_time,
-            force_refresh=force_refresh,
-            clean_cache=clean_cache,
+        perms = self._client.get_perms_cached(
+            entity,
+            user,
+            exp=exp,
+            force=force,
         )
         return None if not perms or perms.is_banned else perms
 
-    async def get_perms(
-        self,
-        chat_id: int,
-        user_id: int,
-        exp_time: Optional[int] = 300,
-        force_refresh: Optional[bool] = False,
-        clean_cache: Optional[bool] = True,
-    ):
-        """
-        Gets the permissions of a user in a chat and cache it
-        :param chat_id: Chat ID
-        :param user_id: User ID
-        :param exp_time: Expiration time of the cache
-        :param force_refresh: Whether to force refresh the cache
-        :param clean_cache: Whether to clean the cache
-        :return: The permissions of the user in the chat
-        """
-        if clean_cache:
-            await self.clean_member_cache(chat_id)
-        if (
-            not force_refresh
-            and self._perms_cache.get(chat_id)
-            and user_id in self._perms_cache.get(chat_id)
-            and self._perms_cache[chat_id][user_id][0] > time.time()
-        ):
-            perms = self._perms_cache[chat_id][user_id][1]
-            self.log(
-                logging.DEBUG,
-                self._libclassname,
-                f"Permissions cached: `True`\nPermission Cache:\n{self._perms_cache}",
-                debug_msg=True,
-            )
-            return perms
-        try:
-            perms = await self._client.get_permissions(chat_id, user_id)
-            if chat_id not in self._perms_cache:
-                self._perms_cache[chat_id] = {}
-            self._perms_cache[chat_id].update(
-                {user_id: (time.time() + exp_time, perms)}
-            )
-            self.log(
-                logging.DEBUG,
-                self._libclassname,
-                f"Permissions cached: `False`\nPermission Cache:\n{self._perms_cache}",
-                debug_msg=True,
-            )
-            return perms
-        except UserNotParticipantError as exc:
-            exp_time = 10
-            if chat_id not in self._perms_cache:
-                self._perms_cache[chat_id] = {}
-            self._perms_cache[chat_id].update({user_id: (time.time() + exp_time, None)})
-            self.log(
-                logging.DEBUG,
-                self._libclassname,
-                "Unable to get permissions. Cached `None`\nPermission"
-                f" Cache:\n{self._perms_cache}\nError: {exc}",
-                debug_msg=True,
-            )
-            return None
-
-    async def clean_member_cache(self, chat_id: int):
-        """
-        Cleans the member cache of a chat
-        :param chat_id: Chat ID
-        :return: None
-        """
-        self.log(
-            logging.DEBUG,
-            self._libclassname,
-            f"Cleaning member cache of {chat_id}",
-            debug_msg=True,
-        )
-        if self._perms_cache.get(chat_id):
-            for key, value in list(self._perms_cache[chat_id].items()):
-                if value[0] < time.time():
-                    self.log(
-                        logging.DEBUG,
-                        self._libclassname,
-                        f"Deleting {key} from {chat_id}",
-                        debug_msg=True,
-                    )
-                    self._perms_cache[chat_id].pop(key)
-
     async def is_linkedchannel(
         self,
-        chat_id: int,
-        user_id: int,
-        exp_time: Optional[int] = 300,
-        force_refresh: Optional[bool] = False,
-        clean_cache: Optional[bool] = True,
+        chat: EntityLike,
+        user: EntityLike,
+        exp: Optional[int] = 300,
+        force: Optional[bool] = False,
     ) -> bool:
         """
         Checks if the message is from the linked channel
-        :param chat_id: Chat ID
-        :param user_id: User ID
-        :param exp_time: Expiration time of the cache
-        :param force_refresh: Whether to force refresh the cache
-        :param clean_cache: Whether to clean the cache
+        :param chat: Chat ID or Chat Entity
+        :param user: User ID or User Entity
+        :param exp: The max time of cached results in seconds
+        :param force: Whether to force refresh the cache
         :return: True if the message is from the linked channel, False otherwise
         """
-        user = await self._client.get_entity(user_id)
+        chat = await self._client.get_entity(chat) if isinstance(chat, int) else chat
+        user = (
+            await self._client.get_entity(user)
+            if user and isinstance(user, int)
+            else user
+        )
         if not isinstance(user, Channel):
             return False
-        full_channel = await self.get_fullchannel(
-            user_id,
-            exp_time=exp_time,
-            force_refresh=force_refresh,
-            clean_cache=clean_cache,
+        full_channel = await self._client.get_fullchannel(
+            user,
+            exp=exp,
+            force=force,
         )
         if (
             full_channel
             and full_channel.full_chat
             and full_channel.full_chat.linked_chat_id
         ):
-            return chat_id == int(full_channel.full_chat.linked_chat_id)
-
-    async def get_fullchannel(
-        self,
-        channel_id: int,
-        exp_time: Optional[int] = 300,
-        force_refresh: Optional[bool] = False,
-        clean_cache: Optional[bool] = True,
-    ):
-        """
-        Gets the FullChannelRequest and cache it
-        :param channel_id: Channel ID
-        :param exp_time: Expiration time of the cache
-        :param force_refresh: Whether to force refresh the cache
-        :param clean_cache: Whether to clean the cache
-        :return: The permissions of the user in the chat
-        """
-        if clean_cache:
-            await self.clean_fullchannel_cache(channel_id)
-        if (
-            not force_refresh
-            and self._get_fullchannelrequest_cache.get(channel_id)
-            and self._get_fullchannelrequest_cache[channel_id][0] > time.time()
-        ):
-            getfullchannelrequest = self._get_fullchannelrequest_cache[channel_id][1]
-            self.log(
-                logging.DEBUG,
-                self._libclassname,
-                "GetFullChannelRequest cached: `True`\nPermission"
-                f" Cache:\n{self._get_fullchannelrequest_cache}",
-                debug_msg=True,
-            )
-            return getfullchannelrequest
-        getfullchannelrequest = await self._client(
-            GetFullChannelRequest(channel=channel_id)
-        )
-        self._get_fullchannelrequest_cache[channel_id] = (
-            time.time() + exp_time,
-            getfullchannelrequest,
-        )
-        self.log(
-            logging.DEBUG,
-            self._libclassname,
-            "GetFullChannelRequest cached: `False`\nPermission"
-            f" Cache:\n{self._get_fullchannelrequest_cache}",
-            debug_msg=True,
-        )
-        return getfullchannelrequest
-
-    async def clean_fullchannel_cache(self, channel_id: int):
-        """
-        Cleans the FullChannelRequest cache of a chat
-        :param channel_id: Channel ID
-        :return: None
-        """
-        self.log(
-            logging.DEBUG,
-            self._libclassname,
-            f"Cleaning full_channel cache of {channel_id}",
-            debug_msg=True,
-        )
-        if self._get_fullchannelrequest_cache.get(channel_id):
-            for key, value in list(self._get_fullchannelrequest_cache.items()):
-                if value[0] < time.time():
-                    self.log(
-                        logging.DEBUG,
-                        self._libclassname,
-                        f"Deleting {key} from {channel_id}",
-                        debug_msg=True,
-                    )
-                    self._get_fullchannelrequest_cache.pop(key)
+            return chat.id == int(full_channel.full_chat.linked_chat_id)
 
     @staticmethod
     async def get_buttons(
@@ -705,7 +551,7 @@ class ApodiktumUtils(loader.Module):
 
     async def get_tag(
         self,
-        user: Union[Chat, int],
+        user: EntityLike,
         WithID: bool = False,
     ) -> str:
         """
@@ -714,8 +560,7 @@ class ApodiktumUtils(loader.Module):
         :param WithID: Return the tag with the ID
         :return: Tag message as string
         """
-        if isinstance(user, int):
-            user = await self._client.get_entity(user)
+        user = await self._client.get_entity(user) if isinstance(user, int) else user
         if isinstance(user, Channel):
             if WithID:
                 return (
@@ -745,14 +590,13 @@ class ApodiktumUtils(loader.Module):
             else f"<a href='tg://user?id={str(user.id)}'>{user.first_name}</a>"
         )
 
-    async def get_tag_link(self, user: Union[Chat, int]) -> str:
+    async def get_tag_link(self, user: EntityLike) -> str:
         """
         Returns a tag link to the user's profile
         :param user: User or user ID
         :return: Tag link as string
         """
-        if isinstance(user, int):
-            user = await self._client.get_entity(user)
+        user = await self._client.get_entity(user) if isinstance(user, int) else user
         if isinstance(user, User):
             return f"tg://user?id={user.id}"
         if isinstance(user, Channel) and getattr(user, "username", None):

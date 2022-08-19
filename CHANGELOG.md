@@ -1,5 +1,14 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.0.16
+### 📦 apodiktum_library:
+#### General:
+ scope: hikka_min 1.3.3
+ 
+#### Utils:
+- removed | `get_fullchannel`
+- removed | `get_perms`
+
 ## 🆕 Version 2.0.15
 ### 📦 apodiktum_library:
 #### General:
