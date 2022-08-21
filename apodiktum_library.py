@@ -1,4 +1,4 @@
-__version__ = (2, 0, 98)
+__version__ = (2, 1, 1)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -153,25 +153,16 @@ class ApodiktumLib(loader.Library):
             f" {self.client} | {self.client.tg_id}"
         )
         self._lib_set("version", __version__)
-        self.utils = ApodiktumUtils(self)
-        self.__controllerloader = ApodiktumControllerLoader(self)
-        self.__internal = ApodiktumInternal(self)
-        self.migrator = ApodiktumMigrator(self)
-        self.beta_access = await self.__internal._beta_access()
-        if self.beta_access:
-            self.utils_beta = ApodiktumUtilsBeta(self)
-        await self._refresh()
-        self.utils.log(
-            logging.DEBUG,
-            self.__class__.__name__,
-            "Refresh done.",
-            debug_msg=True,
-        )
+        if not hasattr(self, "_watcher_q_queue"):
+            self._watcher_q_queue = {}
+        if not hasattr(self, "_watcher_q_task"):
+            self._watcher_q_task = {}
+        await self.__init_classes()
+        await self.__refresh_classes()
         self._ss_task = asyncio.ensure_future(self.__internal._send_stats())
         self._acl_task = asyncio.ensure_future(
             self.__controllerloader.ensure_controller()
         )
-
         self.utils.log(
             logging.DEBUG,
             self.__class__.__name__,
@@ -180,19 +171,30 @@ class ApodiktumLib(loader.Library):
             " loaded.",
         )
 
-    async def _refresh(self):
+    async def __init_classes(self):
+        self.utils = ApodiktumUtils(self)
+        self.__controllerloader = ApodiktumControllerLoader(self)
+        self.__internal = ApodiktumInternal(self)
+        self.migrator = ApodiktumMigrator(self)
+        self.watcher_q = ApodiktumWatcherQueue(self)
+        self.beta_access = await self.__internal._beta_access()
+        if self.beta_access:
+            self.utils_beta = ApodiktumUtilsBeta(self)
+
+    async def __refresh_classes(self):
         self.utils.log(
             logging.DEBUG,
             self.__class__.__name__,
             "Refreshing all classes to the current library state.",
             debug_msg=True,
         )
-        await self.utils._refresh_lib(self)
-        await self.__controllerloader._refresh_lib(self)
-        await self.__internal._refresh_lib(self)
-        await self.migrator._refresh_lib(self)
+        self.utils = await self.utils._refresh_lib(self)
+        self.__controllerloader = await self.__controllerloader._refresh_lib(self)
+        self.__internal = await self.__internal._refresh_lib(self)
+        self.migrator = await self.migrator._refresh_lib(self)
+        self.watcher_q = await self.watcher_q._refresh_lib(self)
         if self.beta_access:
-            await self.utils_beta._refresh_lib(self)
+            self.utils_beta = await self.utils_beta._refresh_lib(self)
         self.utils.log(
             logging.DEBUG,
             self.__class__.__name__,
@@ -207,10 +209,31 @@ class ApodiktumLib(loader.Library):
         """
         self.__internal._is_apodiktum_module()
 
-    async def on_lib_update(self, _: loader.Library):
+    async def on_lib_update(self, new_lib: loader.Library):
+        await self.__refresh_classes()
+        logger.error(
+            "_watcher_q_queue:"
+            f" {getattr(self.watcher_q, '_watcher_q_queue', None) or getattr(self, '_watcher_q_queue', None)}"
+        )
+        logger.error(
+            "_watcher_q_task:"
+            f" {getattr(self.watcher_q, '_watcher_q_task', None) or getattr(self, '_watcher_q_task', None)}"
+        )
+        new_lib._watcher_q_queue = getattr(
+            self.watcher_q, "_watcher_q_queue", None
+        ) or getattr(self, "_watcher_q_queue", None)
+        new_lib._watcher_q_task = getattr(
+            self.watcher_q, "_watcher_q_task", None
+        ) or getattr(self, "_watcher_q_task", None)
         with contextlib.suppress(Exception):
             self._acl_task.cancel()
             self._ss_task.cancel()
+        for task in self._watcher_q_task.copy().values():
+            with contextlib.suppress(Exception):
+                task.cancel()
+        for queue in self._watcher_q_queue.copy():
+            with contextlib.suppress(Exception):
+                self._watcher_q_queue.pop(queue)
         self.utils.log(
             logging.DEBUG,
             self.__class__.__name__,
@@ -235,7 +258,7 @@ class ApodiktumControllerLoader(loader.Module):
         self.utils.log(
             logging.DEBUG,
             lib.__class__.__name__,
-            "class ApodiktumControllerLoader is being initiated!",
+            f"class {self.__class__.__name__} is being initiated!",
             debug_msg=True,
         )
         self.lib = lib
@@ -256,6 +279,7 @@ class ApodiktumControllerLoader(loader.Module):
         """
         self.lib = lib
         self.utils = lib.utils
+        return self
 
     async def ensure_controller(self, first_loop: bool = True):
         """
@@ -358,6 +382,140 @@ class ApodiktumControllerLoader(loader.Module):
             await asyncio.sleep(delay)
 
 
+class ApodiktumWatcherQueue(loader.Module):
+    """
+    Apodiktum Watcher Queue queues messages for the watcher
+    """
+
+    def __init__(
+        self,
+        lib: loader.Library,
+    ):
+        self.utils = lib.utils
+        self.utils.log(
+            logging.DEBUG,
+            lib.__class__.__name__,
+            f"class {self.__class__.__name__} is being initiated!",
+            debug_msg=True,
+        )
+        self.lib = lib
+        self._db = lib.db
+        self._client = lib.client
+        self.inline = lib.inline
+        self._libclassname = self.lib.__class__.__name__
+        self._lib_db = self._db.setdefault(self._libclassname, {})
+        self._chats_db = self._lib_db.setdefault("chats", {})
+        self._watcher_q_queue = lib._watcher_q_queue
+        self._watcher_q_task = lib._watcher_q_task
+        self.__init_old_watcher_handler()
+
+    async def _refresh_lib(
+        self,
+        lib: loader.Library,
+    ):
+        """
+        !do not use this method directly!
+        Refreshes the class with the current state of the library
+        :param lib: The library class
+        :return: None
+        """
+        self.lib = lib
+        self.utils = lib.utils
+        return self
+
+    def __init_old_watcher_handler(self):
+        """
+        Initializes the old watcher handler
+        """
+        if not getattr(self, "first_run", True):
+            return
+        self.first_run = False
+        for name in self._watcher_q_task.copy():
+            self._watcher_q_task.pop(name)
+            self.register(name)
+
+    async def msg_reciever(self, message: Message):
+        """
+        !do not use this method directly, it will be used by `apolib_controller.py`!
+        Recieves messages and queues them for the handler.
+        :param message: The message to queue
+        :return: None
+        """
+        for sub_queue in self._watcher_q_queue.values():
+            await sub_queue.put(message)
+
+    def register(self, name: str):
+        """
+        Adds a new module to the queue
+        :param name: The name of the module
+        :return: None
+        """
+        if not hasattr(self.lib.lookup(name), "q_watcher"):
+            self.utils.log(
+                logging.ERROR,
+                self.__class__.__name__,
+                f"Module `{name}` has no q_watcher!",
+            )
+            return
+        self._watcher_q_queue[name] = asyncio.Queue()
+        self._watcher_q_task[name] = asyncio.create_task(
+            self.__handle_module_queue(name)
+        )
+        self.utils.log(
+            logging.DEBUG,
+            self.__class__.__name__,
+            f"Registered `{name}` to the queue!",
+            debug_msg=True,
+        )
+
+    def unregister(self, name: str):
+        """
+        Removes a queue handler
+        :param name: The name of the module
+        :return: None
+        """
+        try:
+            self._watcher_q_task[name].cancel()
+            self._watcher_q_task.pop(name)
+            self._watcher_q_queue.pop(name)
+            self.utils.log(
+                logging.DEBUG,
+                self.__class__.__name__,
+                f"Unregistered `{name}` from the queue!\nCurrent watcher tasks:"
+                f" {self._watcher_q_task}",
+                debug_msg=True,
+            )
+        except Exception as exc:  # skipcq: PYL-W0703
+            self.utils.log(
+                logging.DEBUG,
+                self.__class__.__name__,
+                f"Remove_queue_handler error: {exc}\nCurrent watcher tasks:"
+                f" {self._watcher_q_task}",
+                debug_msg=True,
+            )
+
+    async def __handle_module_queue(self, name: str):
+        """
+        Handles the queue for a module
+        :param name: The name of the module
+        :return: Message Object
+        """
+        while True:
+            try:
+                msg = await self._watcher_q_queue[name].get()
+                await self.lib.lookup(name).q_watcher(msg) if hasattr(
+                    self.lib.lookup(name), "q_watcher"
+                ) else self.unregister(name)
+            except Exception as e:  # skipcq: PYL-W0703
+                self.utils.log(
+                    logging.DEBUG,
+                    self.__class__.__name__,
+                    f"QueueHandler `{name}`: handle_module error: {e}",
+                    debug_msg=True,
+                )
+                continue
+
+
 class ApodiktumUtils(loader.Module):
     """
     This class is used to handle all the utility functions of the library.
@@ -379,7 +537,7 @@ class ApodiktumUtils(loader.Module):
         self.log(
             logging.DEBUG,
             self._libclassname,
-            "class ApodiktumUtils is being initiated!",
+            f"class {self.__class__.__name__} is being initiated!",
             debug_msg=True,
         )
 
@@ -395,6 +553,7 @@ class ApodiktumUtils(loader.Module):
         """
         self.lib = lib
         self.utils = lib.utils
+        return self
 
     def get_str(
         self, string: str, all_strings: dict, message: Optional[Message] = None
@@ -1646,7 +1805,7 @@ class ApodiktumUtilsBeta(loader.Module):
         self.utils.log(
             logging.DEBUG,
             lib.__class__.__name__,
-            "class ApodiktumUtilsBeta is being initiated!",
+            f"class {self.__class__.__name__} is being initiated!",
             debug_msg=True,
         )
         self.lib = lib
@@ -1674,6 +1833,7 @@ class ApodiktumUtilsBeta(loader.Module):
         """
         self.lib = lib
         self.utils = lib.utils
+        return self
 
 
 class ApodiktumInternal(loader.Module):
@@ -1689,7 +1849,7 @@ class ApodiktumInternal(loader.Module):
         self.utils.log(
             logging.DEBUG,
             lib.__class__.__name__,
-            "class ApodiktumInternalFunctions is being initiated!",
+            f"class {self.__class__.__name__} is being initiated!",
             debug_msg=True,
         )
         self.lib = lib
@@ -1711,6 +1871,7 @@ class ApodiktumInternal(loader.Module):
         """
         self.lib = lib
         self.utils = lib.utils
+        return self
 
     async def _beta_access(self):
         """
@@ -1851,7 +2012,7 @@ class ApodiktumMigrator(loader.Module):
         self.utils.log(
             logging.DEBUG,
             lib.__class__.__name__,
-            "class ApodiktumMigrator successfully initiated!",
+            f"class {self.__class__.__name__} is being initiated!",
             debug_msg=True,
         )
         self.lib = lib
@@ -1872,6 +2033,7 @@ class ApodiktumMigrator(loader.Module):
         """
         self.lib = lib
         self.utils = lib.utils
+        return self
 
     async def migrate(
         self,
