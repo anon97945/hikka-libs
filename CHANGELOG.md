@@ -1,5 +1,10 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.0.18
+### 📦 apodiktum_library:
+#### General:
+- add | `watcher_q` as class, which processes messages one after the other
+
 ## 🆕 Version 2.0.17
 ### 📦 apodiktum_library:
 #### Utils:
