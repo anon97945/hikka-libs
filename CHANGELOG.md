@@ -1,5 +1,11 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.0.19
+### 📦 apodiktum_library:
+#### General:
+- fix | `watcher_q` now successfully cancel tasks
+- rework | internal stuff
+
 ## 🆕 Version 2.0.18
 ### 📦 apodiktum_library:
 #### General:
