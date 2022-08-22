@@ -1,5 +1,10 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.0.20
+### 📦 apodiktum_library:
+#### Watcher_q:
+- rework | now also supports `any` method and also multiple per module
+
 ## 🆕 Version 2.0.19
 ### 📦 apodiktum_library:
 #### General:

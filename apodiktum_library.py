@@ -1,4 +1,4 @@
-__version__ = (2, 1, 13)
+__version__ = (2, 2, 0)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -237,6 +237,10 @@ class ApodiktumLib(loader.Library):
         :param new_lib: The new library
         """
         await self.__refresh_classes()
+        with contextlib.suppress(Exception):
+            self._acl_task.cancel()
+        with contextlib.suppress(Exception):
+            self._ss_task.cancel()
         (
             new_lib._watcher_q_queue,
             new_lib._watcher_q_task,
@@ -437,9 +441,12 @@ class ApodiktumWatcherQueue(loader.Module):
         if not getattr(self, "first_run", True):
             return
         self.first_run = False
-        for name in self._watcher_q_task.copy():
-            self._watcher_q_task.pop(name)
-            self.register(name)
+        for name in list(self._watcher_q_task):
+            for method in list(self._watcher_q_task[name]):
+                self._watcher_q_task[name].pop(method)
+                self.register(name, method)
+            if not self._watcher_q_queue[name]:
+                self._watcher_q_task.pop(name)
 
     async def msg_reciever(self, message: Message):
         """
@@ -448,68 +455,77 @@ class ApodiktumWatcherQueue(loader.Module):
         :param message: The message to queue
         :return: None
         """
-        for sub_queue in self._watcher_q_queue.values():
-            await sub_queue.put(message)
+        for sub_queue in self._watcher_q_queue:
+            for queue in self._watcher_q_queue[sub_queue].values():
+                await queue.put(message)
 
-    def register(self, name: str):
+    def register(self, name: str, method: str = "q_watcher"):
         """
-        Adds a new module to the queue
+        Adds a new method to the queue
         :param name: The name of the module
+        :param method: The method to use for the queue
         :return: None
         """
-        if not hasattr(self.lib.lookup(name), "q_watcher"):
+        if not hasattr(self.lib.lookup(name), method):
             self.utils.log(
                 logging.ERROR,
                 self.__class__.__name__,
-                f"Module `{name}` has no q_watcher!",
+                f"Module `{name}` has no method called `{method}`!",
             )
             return
-        self._watcher_q_queue[name] = asyncio.Queue()
-        self._watcher_q_task[name] = asyncio.create_task(
-            self.__handle_module_queue(name)
+        self._watcher_q_queue.setdefault(name, {}).setdefault(method, asyncio.Queue())
+        self._watcher_q_task.setdefault(name, {}).setdefault(
+            method, asyncio.create_task(self.__queue_method_handler(name, method))
         )
         self.utils.log(
             logging.DEBUG,
             self.__class__.__name__,
-            f"Registered `{name}` to the queue!",
+            f"Registered Method `{method}` for `{name}` to the queue!",
             debug_msg=True,
         )
 
-    def unregister(self, name: str):
+    def unregister(self, name: str, method: str = "q_watcher"):
         """
         Removes a queue handler
         :param name: The name of the module
+        :param method: The method to remove
         :return: None
         """
-        self._watcher_q_task[name].cancel()
-        self._watcher_q_task.pop(name)
-        self._watcher_q_queue.pop(name)
+        self._watcher_q_task[name][method].cancel()
+        self._watcher_q_task[name].pop(method)
+        self._watcher_q_queue[name].pop(method)
+        if not self._watcher_q_task[name]:
+            self._watcher_q_task.pop(name)
+        if not self._watcher_q_queue[name]:
+            self._watcher_q_queue.pop(name)
         self.utils.log(
             logging.DEBUG,
             self.__class__.__name__,
-            f"Unregistered `{name}` from the queue!\nCurrent watcher tasks:"
-            f" {self._watcher_q_task}",
+            f"Unregistered method `{method}` for `{name}` from the queue!\nCurrent"
+            f" watcher tasks: {self._watcher_q_task}",
             debug_msg=True,
         )
 
-    async def __handle_module_queue(self, name: str):
+    async def __queue_method_handler(self, name: str, method: str):
         """
         Handles the queue for a module
         :param name: The name of the module
+        :param method: The method to use for the queue
         :return: Message Object
         """
         try:
             while True:
                 try:
-                    msg = await self._watcher_q_queue[name].get()
-                    await self.lib.lookup(name).q_watcher(msg) if hasattr(
-                        self.lib.lookup(name), "q_watcher"
-                    ) else self.unregister(name)
+                    msg = await self._watcher_q_queue[name][method].get()
+                    await getattr(self.lib.lookup(name), method)(msg) if hasattr(
+                        self.lib.lookup(name), method
+                    ) else self.unregister(name, method)
                 except KeyError:
                     self.utils.log(
                         logging.DEBUG,
                         self.__class__.__name__,
-                        f"Task stopped! Module `{name}` is not registered!",
+                        f"Task stopped! Method `{method}` of `{name}` is not"
+                        " registered!",
                         debug_msg=True,
                     )
                     break
@@ -1989,21 +2005,20 @@ class ApodiktumInternal(loader.Module):
 
     def _lib_update_watcher_q_handler(self):
         self._watcher_q_queue = getattr(
-            self.watcher_q, "_watcher_q_queue", None
-        ) or getattr(self.lib, "_watcher_q_queue", None)
+            self.watcher_q if hasattr(self, "watcher_q") else None,
+            "_watcher_q_queue",
+            {},
+        ) or getattr(self.lib if hasattr(self, "lib") else None, "_watcher_q_queue", {})
         self._watcher_q_task = getattr(
-            self.watcher_q, "_watcher_q_task", None
-        ) or getattr(self.lib, "_watcher_q_task", None)
-        with contextlib.suppress(Exception):
-            self._acl_task.cancel()
-        with contextlib.suppress(Exception):
-            self._ss_task.cancel()
-        for task in list(self._watcher_q_task.values()):
-            with contextlib.suppress(Exception):
-                task.cancel()
-        for queue in list(self._watcher_q_queue):
-            with contextlib.suppress(Exception):
-                self._watcher_q_queue.pop(queue)
+            self.watcher_q if hasattr(self, "watcher_q") else None,
+            "_watcher_q_task",
+            {},
+        ) or getattr(self.lib if hasattr(self, "lib") else None, "_watcher_q_task", {})
+        for name in list(self._watcher_q_task):
+            for method in list(self._watcher_q_task[name].values()):
+                method.cancel()
+        if self._watcher_q_queue:
+            self._watcher_q_queue.clear()
         return self._watcher_q_queue, self._watcher_q_task
 
 
