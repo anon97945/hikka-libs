@@ -1,5 +1,13 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.0.21
+### 📦 apodiktum_library:
+#### Utils:
+- rework | check `doc_string`
+
+#### Watcher_q:
+- rework |  added `except exception` to `__queue_method_handler`
+
 ## 🆕 Version 2.0.20
 ### 📦 apodiktum_library:
 #### Watcher_q:

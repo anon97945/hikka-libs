@@ -1,4 +1,4 @@
-__version__ = (2, 2, 0)
+__version__ = (2, 2, 1)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -477,12 +477,6 @@ class ApodiktumWatcherQueue(loader.Module):
         self._watcher_q_task.setdefault(name, {}).setdefault(
             method, asyncio.create_task(self.__queue_method_handler(name, method))
         )
-        self.utils.log(
-            logging.DEBUG,
-            self.__class__.__name__,
-            f"Registered Method `{method}` for `{name}` to the queue!",
-            debug_msg=True,
-        )
 
     def unregister(self, name: str, method: str = "q_watcher"):
         """
@@ -529,6 +523,20 @@ class ApodiktumWatcherQueue(loader.Module):
                         debug_msg=True,
                     )
                     break
+                except Exception as exc:
+                    self.utils.log(
+                        logging.DEBUG,
+                        name,
+                        f"Exception in method `{method}`:\n{exc}",
+                        debug_msg=True,
+                    )
+                    self.utils.log(
+                        logging.ERROR,
+                        name,
+                        exc,
+                        exc_info=True,
+                    )
+                    continue
             return
         except asyncio.CancelledError:
             return
@@ -616,21 +624,26 @@ class ApodiktumUtils(loader.Module):
 
     def log(
         self,
-        level: int,
-        name: str,
-        text: str,
+        level: Optional[int] = None,
+        name: Optional[str] = None,
+        text: Optional[str] = None,
         debug_msg: Optional[bool] = False,
         exc_info: Optional[Exception] = False,
     ):
         """
         Logs a message to the console
-        :param level: The logging level
-        :param name: The name of the module
-        :param text: The text to log
+        :param level: The logging level | not required if exc_info is True
+        :param name: The name of the module | not required if exc_info is True
+        :param text: The text to log | not required if exc_info is True
         :param debug_msg: Whether to log the message as a defined debug message
+        :param exc_info: Whether to log the exception info
         :return: None
         """
+        if not name:
+            name = self._libclassname
         apo_logger = logging.getLogger(name)
+        if exc_info:
+            return apo_logger.exception(text)
         if (
             not debug_msg and self.lib.config["log_channel"] and level == logging.DEBUG
         ) or (debug_msg and self.lib.config["log_debug"] and level == logging.DEBUG):
