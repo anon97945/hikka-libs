@@ -1,4 +1,4 @@
-__version__ = (2, 2, 1)
+__version__ = (2, 2, 2)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -158,7 +158,7 @@ class ApodiktumLib(loader.Library):
             f" v{__version__[0]}.{__version__[1]}.{__version__[2]} started for"
             f" {self.client} | {self.client.tg_id}"
         )
-        self._lib_set("version", __version__)
+        self.allmodules._apodiktum_lib_version = __version__
         self.loaded_classes = {}
         if not hasattr(self, "_watcher_q_queue"):
             self._watcher_q_queue = {}
