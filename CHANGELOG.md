@@ -1,5 +1,12 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.0.23
+### 📦 apodiktum_library:
+#### Utils:
+- added | `raw_text` to optionally support custom emojis, check docstring
+- added | `remove_html` check docstring
+- removed | `rem_customemoji_html`
+
 ## 🆕 Version 2.0.22
 ### 📦 apodiktum_library:
 #### General:

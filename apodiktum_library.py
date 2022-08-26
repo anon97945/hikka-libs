@@ -1,4 +1,4 @@
-__version__ = (2, 2, 2)
+__version__ = (2, 2, 9)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -1299,14 +1299,27 @@ class ApodiktumUtils(loader.Module):
         """
         return emoji.emoji_list(text)
 
-    @staticmethod
-    def rem_customemoji_html(text: str) -> str:
+    def remove_html(
+        self,
+        text: str,
+        escape: Optional[bool] = False,
+        rem_emoji_tag: Optional[bool] = True,
+    ) -> str:
         """
-        Removes custom emoji HTML tags from text
-        :param text: text
-        :return: text
+        Removes HTML tags from text
+        :param text: Text to remove HTML from
+        :param escape: Escape HTML
+        :param unescape: Unescape HTML
+        :param rem_emoji_tag: Remove custom emoji tag
+        :return: Text
         """
-        return re.sub(r'(<emoji document_id="\d+">|<\/emoji>)', "", text)
+        if rem_emoji_tag:
+            html_regex = r"(<\/?a.*?>|<\/?b>|<\/?i>|<\/?u>|<\/?strong>|<\/?em>|<\/?code>|<\/?strike>|<\/?del>|<\/?pre.*?>|<\/?br>|<\/?emoji.*?>)"
+        else:
+            html_regex = r"(<\/?a.*?>|<\/?b>|<\/?i>|<\/?u>|<\/?strong>|<\/?em>|<\/?code>|<\/?strike>|<\/?del>|<\/?pre.*?>|<\/?br>)"
+        return (self.escape_html if escape else self.unescape_html)(
+            re.sub(html_regex, "", text)
+        )
 
     @staticmethod
     def unescape_html(text: str) -> str:
@@ -1325,6 +1338,17 @@ class ApodiktumUtils(loader.Module):
         :return: text with HTML entities escaped
         """
         return html.escape(text)
+
+    def raw_text(
+        self, message: Message, keep_custom_emoji: Optional[bool] = False
+    ) -> str:
+        """
+        Get raw text from text
+        :param message: Message object
+        :param keep_custom_emoji: Whether to keep custom emoji tag or not
+        :return: raw text
+        """
+        return self.remove_html(message.text, rem_emoji_tag=not keep_custom_emoji)
 
     @staticmethod
     def humanbytes(num: int, decimal: Optional[int] = 2) -> str:
