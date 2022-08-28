@@ -1,5 +1,10 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.0.24
+### 📦 apodiktum_library:
+#### Utils:
+- rework | `remove_html` changed `rem_emoji_tag = True` to `keep_emoji_tag = False`
+
 ## 🆕 Version 2.0.23
 ### 📦 apodiktum_library:
 #### Utils:

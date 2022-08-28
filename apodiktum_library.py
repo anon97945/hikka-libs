@@ -1,4 +1,4 @@
-__version__ = (2, 2, 9)
+__version__ = (2, 2, 10)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -1303,20 +1303,21 @@ class ApodiktumUtils(loader.Module):
         self,
         text: str,
         escape: Optional[bool] = False,
-        rem_emoji_tag: Optional[bool] = True,
+        keep_emoji_tag: Optional[bool] = False,
     ) -> str:
         """
         Removes HTML tags from text
         :param text: Text to remove HTML from
         :param escape: Escape HTML
         :param unescape: Unescape HTML
-        :param rem_emoji_tag: Remove custom emoji tag
+        :param keep_emoji_tag: Whether to keep emoji tag or not
         :return: Text
         """
-        if rem_emoji_tag:
-            html_regex = r"(<\/?a.*?>|<\/?b>|<\/?i>|<\/?u>|<\/?strong>|<\/?em>|<\/?code>|<\/?strike>|<\/?del>|<\/?pre.*?>|<\/?br>|<\/?emoji.*?>)"
-        else:
-            html_regex = r"(<\/?a.*?>|<\/?b>|<\/?i>|<\/?u>|<\/?strong>|<\/?em>|<\/?code>|<\/?strike>|<\/?del>|<\/?pre.*?>|<\/?br>)"
+        html_regex = (
+            r"(<\/?a.*?>|<\/?b>|<\/?i>|<\/?u>|<\/?strong>|<\/?em>|<\/?code>|<\/?strike>|<\/?del>|<\/?pre.*?>|<\/?br>)"
+            if keep_emoji_tag
+            else r"(<\/?a.*?>|<\/?b>|<\/?i>|<\/?u>|<\/?strong>|<\/?em>|<\/?code>|<\/?strike>|<\/?del>|<\/?pre.*?>|<\/?br>|<\/?emoji.*?>)"
+        )
         return (self.escape_html if escape else self.unescape_html)(
             re.sub(html_regex, "", text)
         )
@@ -1348,7 +1349,7 @@ class ApodiktumUtils(loader.Module):
         :param keep_custom_emoji: Whether to keep custom emoji tag or not
         :return: raw text
         """
-        return self.remove_html(message.text, rem_emoji_tag=not keep_custom_emoji)
+        return self.remove_html(message.text, keep_emoji_tag=keep_custom_emoji)
 
     @staticmethod
     def humanbytes(num: int, decimal: Optional[int] = 2) -> str:
