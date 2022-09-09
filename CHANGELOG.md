@@ -1,5 +1,10 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.0.25
+### 📦 apodiktum_library:
+#### Utils:
+- rework | `is_member` will not return perms if user is banned
+
 ## 🆕 Version 2.0.24
 ### 📦 apodiktum_library:
 #### Utils:

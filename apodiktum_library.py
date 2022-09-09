@@ -1,4 +1,4 @@
-__version__ = (2, 2, 10)
+__version__ = (2, 2, 11)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -679,13 +679,12 @@ class ApodiktumUtils(loader.Module):
         :return: perms if user is a member of the chat, None otherwise
         """
         try:
-            perms = await self._client.get_perms_cached(
+            return await self._client.get_perms_cached(
                 entity,
                 user,
                 exp=exp,
                 force=force,
             )
-            return None if perms.is_banned else perms
         except UserNotParticipantError:
             return None
 
