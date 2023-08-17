@@ -1,10 +1,10 @@
-__version__ = (2, 2, 11)
+__version__ = (2, 2, 12)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
 # █▀█ █ ▀█ █▄█ █ ▀█ ▀▀█   █ ▀▀█ ▀▀█ ▄█
 #
-#           © Copyright 2022
+#           © Copyright 2023
 #
 #        developed by @anon97945
 #
@@ -592,14 +592,9 @@ class ApodiktumUtils(loader.Module):
         :return: The translated string
         """
         base_strings = "strings"
-        default_lang = None
-        if (
-            "hikka.translations" in self._db
-            and "lang" in self._db["hikka.translations"]
-        ):
-            default_lang = self._db["hikka.translations"]["lang"]
+        default_lang = self.db.get("hikka.translations", "lang")
         languages = {base_strings: all_strings[base_strings]}
-        for lang, strings in all_strings.items():
+        for lang in all_strings:
             if len(lang.split("_", 1)) == 2:
                 languages[lang.split("_", 1)[1]] = {
                     **all_strings[base_strings],
@@ -665,7 +660,7 @@ class ApodiktumUtils(loader.Module):
 
     async def is_member(
         self,
-        entity: EntityLike,
+        chat: EntityLike,
         user: Optional[EntityLike] = None,
         exp: Optional[int] = 5,
         force: Optional[bool] = False,
@@ -680,7 +675,7 @@ class ApodiktumUtils(loader.Module):
         """
         try:
             return await self._client.get_perms_cached(
-                entity,
+                chat,
                 user,
                 exp=exp,
                 force=force,
@@ -1378,12 +1373,11 @@ class ApodiktumUtils(loader.Module):
         :param message: message
         :return: message
         """
-        reply = await self._client.get_messages(
+        return await self._client.get_messages(
             utils.get_chat_id(message),
             ids=getattr(getattr(message, "reply_to", None), "reply_to_top_id", None)
             or getattr(getattr(message, "reply_to", None), "reply_to_msg_id", None),
         )
-        return reply
 
     async def check_inlinebot(
         self,

@@ -1,5 +1,12 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.2.12
+### 📦 apodiktum_library:
+#### Utils:
+- rework | `get_str` 
+- is_member | changed entity to chat
+- cleaned code
+
 ## 🆕 Version 2.0.25
 ### 📦 apodiktum_library:
 #### Utils:
