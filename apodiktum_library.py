@@ -1,4 +1,4 @@
-__version__ = (2, 2, 12)
+__version__ = (2, 2, 13)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -592,7 +592,12 @@ class ApodiktumUtils(loader.Module):
         :return: The translated string
         """
         base_strings = "strings"
-        default_lang = self.db.get("hikka.translations", "lang")
+        default_lang = None
+        if (
+            "hikka.translations" in self._db
+            and "lang" in self._db["hikka.translations"]
+        ):
+            default_lang = self._db["hikka.translations"]["lang"]
         languages = {base_strings: all_strings[base_strings]}
         for lang in all_strings:
             if len(lang.split("_", 1)) == 2:

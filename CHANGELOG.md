@@ -1,5 +1,10 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.2.13
+### 📦 apodiktum_library:
+#### Utils:
+- revert | `get_str` 
+
 ## 🆕 Version 2.2.12
 ### 📦 apodiktum_library:
 #### Utils:
