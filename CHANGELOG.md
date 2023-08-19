@@ -1,5 +1,10 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.2.14
+### 📦 apodiktum_library:
+#### ApodiktumControllerLoader:
+- added unload/break for ensure_controller
+
 ## 🆕 Version 2.2.13
 ### 📦 apodiktum_library:
 #### Utils:
