@@ -1,4 +1,4 @@
-__version__ = (2, 2, 13)
+__version__ = (2, 2, 14)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -277,6 +277,7 @@ class ApodiktumControllerLoader(loader.Module):
         self._client = lib.client
         self.inline = lib.inline
         self._libclassname = lib.__class__.__name__
+        self.unload_controller = False
 
     async def _refresh_lib(
         self,
@@ -299,23 +300,24 @@ class ApodiktumControllerLoader(loader.Module):
         if not getattr(self.lib.allmodules, "_apodiktum_controller_init", False):
             self.lib.allmodules._apodiktum_controller_init = True
             while True:
-                if first_loop:
-                    if (
-                        not await self._wait_load(
-                            delay=5, retries=5, first_loop=first_loop
-                        )
-                        and not self._controller_refresh()
-                    ):
+                if not self.unload_controller:
+                    if first_loop:
+                        if (
+                            not await self._wait_load(
+                                delay=5, retries=5, first_loop=first_loop
+                            )
+                            and not self._controller_refresh()
+                        ):
+                            await self._init_controller()
+                        first_loop = False
+                    elif not self._controller_refresh():
                         await self._init_controller()
-                    first_loop = False
-                elif not self._controller_refresh():
-                    await self._init_controller()
                 await asyncio.sleep(5)
         return
 
     async def _init_controller(self):
         """
-        Initializes the Apo-LibController downnload and load
+        Initializes the Apo-LibController download and load
         """
         self.utils.log(
             logging.DEBUG,
@@ -1730,6 +1732,7 @@ class ApodiktumUtils(loader.Module):
         """
         Deletes a message in a chat
         :param message: The message to delete
+        :param deltimer: The time in seconds to wait before deleting the message
         :param use_bot: Whether to use the inline bot or not
         :return: True if the message was deleted, False if not
         """
