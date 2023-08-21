@@ -1,5 +1,10 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.2.15
+### 📦 apodiktum_library:
+#### General:
+- removed stats sender
+
 ## 🆕 Version 2.2.14
 ### 📦 apodiktum_library:
 #### ApodiktumControllerLoader:

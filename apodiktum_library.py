@@ -1,4 +1,4 @@
-__version__ = (2, 2, 14)
+__version__ = (2, 2, 15)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -166,7 +166,6 @@ class ApodiktumLib(loader.Library):
             self._watcher_q_task = {}
         await self.__init_classes()
         await self.__refresh_classes()
-        self._ss_task = asyncio.ensure_future(self._internal._send_stats())
         self._acl_task = asyncio.ensure_future(
             self._controllerloader.ensure_controller()
         )
@@ -224,12 +223,6 @@ class ApodiktumLib(loader.Library):
             "Refreshing of all classes done.",
             debug_msg=True,
         )
-
-    def apodiktum_module(self):
-        """
-        Sets Apodiktum Library init module to Apodiktum Module
-        """
-        self._internal._is_apodiktum_module()
 
     async def on_lib_update(self, new_lib: loader.Library):
         """
@@ -293,6 +286,22 @@ class ApodiktumControllerLoader(loader.Module):
         self.utils = lib.utils
         return self
 
+    async def _init_controller(self):
+        """
+        Initializes the Apo-LibController download and load
+        """
+        self.utils.log(
+            logging.DEBUG,
+            self._libclassname,
+            "Attempting to load ApoLibController from GitHub.",
+            debug_msg=True,
+        )
+        controller_loaded = await self._load_github()
+        if controller_loaded:
+            return controller_loaded
+        self._controller_found = False
+        return None
+
     async def ensure_controller(self, first_loop: bool = True):
         """
         Ensures that the Apo-LibController is loaded
@@ -314,22 +323,6 @@ class ApodiktumControllerLoader(loader.Module):
                         await self._init_controller()
                 await asyncio.sleep(5)
         return
-
-    async def _init_controller(self):
-        """
-        Initializes the Apo-LibController download and load
-        """
-        self.utils.log(
-            logging.DEBUG,
-            self._libclassname,
-            "Attempting to load ApoLibController from GitHub.",
-            debug_msg=True,
-        )
-        controller_loaded = await self._load_github()
-        if controller_loaded:
-            return controller_loaded
-        self._controller_found = False
-        return None
 
     def _controller_refresh(self):
         """
@@ -1964,83 +1957,6 @@ class ApodiktumInternal(loader.Module):
                 f"Error while checking beta access: {exc}",
             )
             return beta_access
-
-    async def _send_stats(self):
-        """
-        !do not use this method directly!
-        Send anonymous stats to Hikka
-        :return: None
-        """
-        if self._db.get(main.__name__, "stats", True):
-            await asyncio.sleep(8)
-            urls = [
-                "https://raw.githubusercontent.com/anon97945/hikka-mods/master/apodiktum_library.py",
-                "https://raw.githubusercontent.com/anon97945/hikka-mods/master/total_users.py",
-            ]
-            if not getattr(self, "apodiktum_module", False):
-                urls.append(
-                    "https://raw.githubusercontent.com/anon97945/hikka-mods/master/ApoLib_others.py"
-                )
-            while True:
-                for url in urls:
-                    asyncio.ensure_future(self.__send_stats_handler(url))
-                await asyncio.sleep(6 * 60 * 60)  # 6 hours
-
-    def _is_apodiktum_module(self):
-        """
-        !do not use this method directly!
-        Sets the stats to apodiktum
-        :return: None
-        """
-        self.apodiktum_module = True
-
-    async def __send_stats_handler(self, url: str, retry: bool = False):
-        """
-        !do not use this method directly!
-        Send anonymous stats to Hikka
-        :param url: The url to send to the stats server
-        :return: None
-        """
-        with contextlib.suppress(Exception):
-            if url is not None and utils.check_url(url):
-                try:
-                    if not self._db.get("LoaderMod", "token"):
-                        self._db.set(
-                            "LoaderMod",
-                            "token",
-                            (
-                                await (
-                                    await self._client.get_messages(
-                                        "@hikka_ub", ids=[10]
-                                    )
-                                )[0].click(0)
-                            ).message,
-                        )
-
-                    res = await utils.run_sync(
-                        requests.post,
-                        "https://heta.hikariatama.ru/stats",
-                        data={"url": url},
-                        headers={"X-Hikka-Token": self._db.get("LoaderMod", "token")},
-                    )
-                    if res.status_code == 403:
-                        if retry:
-                            return
-                        self._db.set("LoaderMod", "token", None)
-                        return await self.__send_stats_handler(url, retry=True)
-                    if filename := (os.path.basename(urlparse(url).path)).split(".")[0]:
-                        self.utils.log(
-                            logging.DEBUG,
-                            self._libclassname,
-                            f"Succesfully sent stats for {filename}",
-                            debug_msg=True,
-                        )
-                except Exception as exc:  # skipcq: PYL-W0703
-                    self.utils.log(
-                        logging.DEBUG,
-                        self._libclassname,
-                        f"Failed to send stats: {exc}",
-                    )
 
     def _lib_update_watcher_q_handler(self):
         self._watcher_q_queue = getattr(
