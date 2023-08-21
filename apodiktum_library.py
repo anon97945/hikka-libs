@@ -1,4 +1,4 @@
-__version__ = (2, 2, 15)
+__version__ = (2, 2, 16)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -364,11 +364,10 @@ class ApodiktumControllerLoader(loader.Module):
                     debug_msg=True,
                 )
                 return lib_controller
-            if not getattr(self.lib.lookup("Loader"), "_fully_loaded", False):
+            if not getattr(self.lib.lookup("Loader"), "fully_loaded", False):
                 retries = 1
             elif (
-                getattr(self.lib.lookup("Loader"), "_fully_loaded", False)
-                and first_loop
+                getattr(self.lib.lookup("Loader"), "fully_loaded", False) and first_loop
             ):
                 retries = 0
             else:
@@ -380,7 +379,7 @@ class ApodiktumControllerLoader(loader.Module):
                     "ApoLibController not found, retrying in"
                     f" {delay} seconds...\nHikka"
                     " fully loaded:"
-                    f" {getattr(self.lib.lookup('Loader'), '_fully_loaded', False)}",
+                    f" {getattr(self.lib.lookup('Loader'), 'fully_loaded', False)}",
                     debug_msg=True,
                 )
             if retries == 0:

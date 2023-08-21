@@ -1,5 +1,10 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.2.16
+### 📦 apodiktum_library:
+#### General:
+- '_fully_loaded' was changed to 'fully_loaded' in hikka
+
 ## 🆕 Version 2.2.15
 ### 📦 apodiktum_library:
 #### General:
