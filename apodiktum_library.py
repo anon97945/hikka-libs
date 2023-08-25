@@ -1,4 +1,4 @@
-__version__ = (2, 2, 16)
+__version__ = (2, 2, 18)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -31,11 +31,9 @@ import html
 import io
 import logging
 import math
-import os
 import re
 from datetime import datetime, timedelta
 from typing import IO, Any, Optional, Tuple, Union
-from urllib.parse import urlparse
 
 import aiohttp
 import emoji
@@ -519,15 +517,9 @@ class ApodiktumWatcherQueue(loader.Module):
                     break
                 except Exception as exc:
                     self.utils.log(
-                        logging.DEBUG,
-                        name,
-                        f"Exception in method `{method}`:\n{exc}",
-                        debug_msg=True,
-                    )
-                    self.utils.log(
                         logging.ERROR,
                         name,
-                        exc,
+                        f"Exception in method `{method}` of `{name}`:\n{exc}",
                         exc_info=True,
                     )
                     continue
