@@ -1,5 +1,10 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.2.18
+### 📦 apodiktum_library:
+#### Watcher_q:
+- reworked exception, modules now dont need any try except anymore; hopefully.
+
 ## 🆕 Version 2.2.16
 ### 📦 apodiktum_library:
 #### General:
