@@ -1,5 +1,10 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.2.19
+### 📦 apodiktum_library:
+#### General:
+- patch eval with apodiktum_library
+
 ## 🆕 Version 2.2.18
 ### 📦 apodiktum_library:
 #### Watcher_q:

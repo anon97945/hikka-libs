@@ -1,4 +1,4 @@
-__version__ = (2, 2, 18)
+__version__ = (2, 2, 19)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -69,7 +69,7 @@ from telethon.tl.types import (
     User,
 )
 
-from .. import loader, main, utils
+from .. import loader, utils
 
 logger = logging.getLogger(__name__)
 
@@ -167,6 +167,7 @@ class ApodiktumLib(loader.Library):
         self._acl_task = asyncio.ensure_future(
             self._controllerloader.ensure_controller()
         )
+        self.lookup("evaluator").apo_lib = self
         self.utils.log(
             logging.DEBUG,
             self.__class__.__name__,
