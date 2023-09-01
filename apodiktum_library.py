@@ -1,4 +1,4 @@
-__version__ = (2, 2, 19)
+__version__ = (2, 2, 20)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
@@ -796,8 +796,7 @@ class ApodiktumUtils(loader.Module):
         :param chat: Chat or chat ID
         :return: Invite link as string
         """
-        if isinstance(chat, int):
-            chat = await self._client.get_entity(chat)
+        chat = await self._client.get_entity(chat) if isinstance(chat, int) else chat
         if chat.username:
             link = f"https://t.me/{chat.username}"
         elif chat.admin_rights and chat.admin_rights.invite_users:
