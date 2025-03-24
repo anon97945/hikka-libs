@@ -1,10 +1,10 @@
-__version__ = (2, 2, 20)
+__version__ = (2, 2, 21)
 
 
 # ▄▀█ █▄ █ █▀█ █▄ █ █▀█ ▀▀█ █▀█ █ █ █▀
 # █▀█ █ ▀█ █▄█ █ ▀█ ▀▀█   █ ▀▀█ ▀▀█ ▄█
 #
-#           © Copyright 2023
+#           © Copyright 2024
 #
 #        developed by @anon97945
 #
@@ -15,8 +15,8 @@ __version__ = (2, 2, 20)
 # 🌐 https://www.gnu.org/licenses/gpl-3.0.html
 
 # meta developer: @apodiktum_modules
-# meta banner: https://t.me/file_dumbster/11
-# meta pic: https://t.me/file_dumbster/13
+# meta banner: https://t.me/apodiktum_dumpster/11
+# meta pic: https://t.me/apodiktum_dumpster/13
 
 # scope: hikka_min 1.3.3
 # requires: emoji alphabet_detector
@@ -656,22 +656,18 @@ class ApodiktumUtils(loader.Module):
         user: Optional[EntityLike] = None,
         exp: Optional[int] = 5,
         force: Optional[bool] = False,
-    ) -> bool:
+    ) -> Optional[bool]:
         """
-        Checks if a user is a member of a chat
-        :param entity: Chat ID or Chat Entity
+        Checks if a user is a member of a chat.
+        :param chat: Chat ID or Chat Entity
         :param user: User ID or User Entity
         :param exp: The max time of cached results in seconds
         :param force: Whether to force a refresh of the cache
         :return: perms if user is a member of the chat, None otherwise
         """
         try:
-            return await self._client.get_perms_cached(
-                chat,
-                user,
-                exp=exp,
-                force=force,
-            )
+            perms = await self._client.get_perms_cached(chat, user, exp=exp, force=force)
+            return perms if perms and not perms.is_banned else None
         except UserNotParticipantError:
             return None
 
