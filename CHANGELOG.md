@@ -1,5 +1,10 @@
 # 📝 Library Changelog:
 
+## 🆕 Version 2.3.0
+### 📦 apodiktum_library:
+#### General:
+- now supports both aiogram 2.x and 3.x versions
+
 ## 🆕 Version 2.2.19
 ### 📦 apodiktum_library:
 #### General:
