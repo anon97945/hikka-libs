@@ -39,13 +39,36 @@ import aiohttp
 import emoji
 import grapheme
 import requests
+
+from aiogram import __version__ as _aio_version
 from aiogram.types import ChatPermissions
-from aiogram.utils.exceptions import (
-    BotKicked,
-    ChatNotFound,
-    MessageCantBeDeleted,
-    MessageToDeleteNotFound,
-)
+
+if int(_aio_version[0]) < 3:
+    from aiogram.utils.exceptions import (
+        BotKicked,
+        ChatNotFound,
+        MessageCantBeDeleted,
+        MessageToDeleteNotFound,
+    )
+    aio_exceptions = (
+        BotKicked,
+        ChatNotFound,
+        MessageCantBeDeleted,
+        MessageToDeleteNotFound
+    )
+else:
+    from aiogram.exceptions import (
+        TelegramForbiddenError,
+        TelegramNotFound,
+        TelegramBadRequest
+    )
+
+    aio_exceptions = (
+        TelegramForbiddenError,
+        TelegramNotFound,
+        TelegramBadRequest
+    )
+
 from telethon.errors import UserNotParticipantError
 from telethon.hints import EntityLike
 from telethon.tl.functions.channels import (
@@ -1729,12 +1752,7 @@ class ApodiktumUtils(loader.Module):
                 and await self.check_inlinebot(chat_id)
                 and isinstance(chat, (Channel, Chat))
             ):
-                with contextlib.suppress(
-                    MessageCantBeDeleted,
-                    BotKicked,
-                    ChatNotFound,
-                    MessageToDeleteNotFound,
-                ):
+                with contextlib.suppress(*aio_exceptions):
                     return await self.inline.bot.delete_message(
                         chat_id
                         if str(chat_id).startswith("-100")
